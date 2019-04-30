@@ -1,0 +1,18 @@
+(library
+ (name lib)
+ (wrapped false)
+ (modules :standard \ main)
+ (libraries
+   owee tree_layout tyxml
+   iter containers containers.data
+   tyre printbox
+ )
+)
+  
+
+(executable
+ (name main)
+ (modules main)
+ (public_name modulectomy)
+ (libraries lib cmdliner)
+)
