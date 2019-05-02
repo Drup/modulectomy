@@ -76,7 +76,7 @@ let mk_info_tbl buffer sections =
   let h = AddrTbl.create 17 in
   let f addr =
     let v = Symbol.value addr in
-    let size = Symbol.size_in_bytes addr in
+    let size = Some (Symbol.size_in_bytes addr) in
     let location =
       AddrMap.find_opt v loctbl
     in
