@@ -81,36 +81,37 @@ let diff_loc loc1 loc2 = match loc1, loc2 with
   | Javascript.Pi pi1, Javascript.Pi pi2 ->
     Some (Int64.of_int @@ abs (pi1.idx - pi2.idx))
   | _ -> None
-let get_name shift posmap ?id loc = 
-  let get_pi = function Javascript.Pi pi -> Some pi | _ -> None in
-  let get_name = function
-    | Javascript.S id -> id.name
-    | V c -> Code.Var.to_string c
-  in
+let pi_of_loc = function Javascript.Pi pi -> Some pi | _ -> None
+let lookup_ident = function
+  | Javascript.S id -> id.name, id.loc
+  | V c -> Code.Var.to_string c, N
+let get_name posmap id = 
   let open CCOpt.Infix in
-  let name = 
-    get_pi loc >>= fun pi ->
-    PosMap.find_opt (pi.idx+shift) posmap >>= fun (name, _) ->
+  id >>= fun id ->
+  let name, loc = lookup_ident id in
+  let ori_name = 
+    pi_of_loc loc >>= fun pi ->
+    PosMap.find_opt pi.idx posmap >>= fun (name, _) ->
     name
   in
-  name <+> (CCOpt.map get_name id)
+  ori_name <+> (Some name) 
   
-let get_position shift posmap loc =
-  let get_pi = function Javascript.Pi pi -> Some pi | _ -> None in
+let get_position posmap id =
   let open CCOpt.Infix in
-  get_pi loc >>= fun pi ->
+  id >>= fun id ->
+  let _, loc = lookup_ident id in
+  pi_of_loc loc >>= fun pi ->
   (* Format.eprintf "%a: %i@." CCFormat.(opt string) pi.name (pi.idx+shift) ; *)
-  PosMap.find_opt (pi.idx+shift) posmap >>= fun (_, pos) ->
+  PosMap.find_opt pi.idx posmap >>= fun (_, pos) ->
   Some pos
 
 let info_of_js endpos posmap js : _ Iter.t =
   let open Javascript in
-  let mk scope ?id kind loc size k =
-    let shift = match kind with Info.Function -> 9 | _ -> 0 in
-    match get_name shift posmap loc ?id with
+  let mk scope ?id kind size k =
+    match get_name posmap id with
     | None -> ()
     | Some name ->
-      let pos = get_position shift posmap loc in
+      let pos = get_position posmap id in
       let data = Info.{ size ; id = None; location = pos ; kind } in
       k (scope @ [name], data)
   in 
@@ -167,8 +168,8 @@ let info_of_js endpos posmap js : _ Iter.t =
   and walk_expression (scope, endloc) e k = match e with
     | EFun (id, _, body, loc) ->
       let size = diff_loc loc endloc in
-      mk scope Function loc size ?id k ;
-      let scope = scope @ CCOpt.to_list @@ get_name 9 posmap loc ?id in
+      mk scope Function size ?id k ;
+      let scope = scope @ CCOpt.to_list @@ get_name posmap id in
       let _ = walk_source_elements (scope, endloc) body k in
       loc
     | ECall (e, args, _) ->
@@ -182,12 +183,12 @@ let info_of_js endpos posmap js : _ Iter.t =
       let prevloc = walk_expression (scope, prevloc) e k in
       let size = diff_loc loc prevloc in
       (* let scope = scope @ CCOpt.to_list @@ get_name 0 posmap loc ~id in *)
-      mk scope Value loc size ~id k ;
+      mk scope Value size ~id k ;
       loc (* This sucks a bit *)
   and walk_function_declaration scope ((id, _, body, endloc), loc) k =
     let size = diff_loc loc endloc in
-    mk scope Function loc size ~id k;
-    let scope = scope @ CCOpt.to_list @@ get_name 9 posmap loc ~id in
+    mk scope Function size ~id k;
+    let scope = scope @ CCOpt.to_list @@ get_name posmap (Some id) in
     let _ = walk_source_elements (scope, endloc) body k in
     loc
   in

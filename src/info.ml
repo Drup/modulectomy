@@ -106,7 +106,9 @@ let prefix_filename (T.T t) =
     match data.T.value with
     | [] 
     | {location = None ; _ } :: _ ->
-      add map prefix data
+      let i = "<unknown>" in
+      let data = T.{value = [] ; children = T (SMap.singleton prefix data)} in
+      add map i data
     | {location = Some (file, _,_) ; _} :: _ ->
       let i = Fpath.(filename @@ v file) in
       let data = T.{value = [] ; children = T (SMap.singleton prefix data)} in

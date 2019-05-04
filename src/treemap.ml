@@ -20,7 +20,6 @@ let rec to_tree_layout' (Info.T.T t) =
       Array.sort (fun (T.Node (x1, _)) (Node (x2, _)) ->
           - (Float.compare x1.size x2.size)) x;
       x)
-
 and node_to_tree_layout (name, {value; children}) =
   let a = to_tree_layout' children in
   let size =
@@ -32,6 +31,7 @@ and node_to_tree_layout (name, {value; children}) =
       |> Iter.sumf
   in
   Tree_layout.Node ({name ; size ; data = CCList.head_opt value}, a)
+
 let to_tree_layout x =
   let a = to_tree_layout' x in
   let size = areal a in
@@ -54,8 +54,8 @@ let rec cut n (T.Node (x, a)) =
   then T.Node (x, [||])
   else Node (x, Array.map (cut (n-1)) a)
 
-module Svg = struct
-  module M = Tyxml.Svg
+module Doc = struct
+  open Tyxml
   open Tree_layout.Common
 
   let style_of_info info =
@@ -68,19 +68,19 @@ module Svg = struct
     | Some _ ->
       "fill:#E4F866;stroke:black"
 
-  let rect ?info { p ; w ; h } =
-    M.[
+  let rect ?info ~level { p ; w ; h } =
+    Svg.[
       rect ~a:[
         a_x (p.x, None) ; a_y (p.y, None) ;
         a_width (w, None) ; a_height (h, None) ;
-        a_stroke_width ((w+.h)/.1000., None) ;
+        a_stroke_width (exp (-. 2. *. float level), None) ;
         a_style (style_of_info info) ;
       ][]
     ] @
     match info with
     | None -> []
     | Some info ->
-      M.[text ~a:[
+      Svg.[text ~a:[
           a_x_list [p.x +. w/.2., None] ; a_y_list [p.y+.h/.2., None] ;
           a_text_anchor `Middle; a_dy_list [0.4, Some `Em];
           a_font_size @@ string_of_float @@ (w+.h)/.20. ;
@@ -91,24 +91,38 @@ module Svg = struct
   let list_flatmap_array f a =
     List.concat @@ list_map_array f a
 
-  let viewbox_of_rect { p ; w ; h } = M.a_viewBox (p.x, p.y, w, h)
+  let viewbox_of_rect { p ; w ; h } = Svg.a_viewBox (p.x, p.y, w, h)
 
-  let rec svg_rects t =
-    match t with
-    | T.Node ((info,r), [||]) -> rect ~info r
-    | Node ((info,r), a) ->
-      list_flatmap_array (svg_rects) a @ rect ~info r
+  let rec svg_rect level (T.Node ((info,r), a)) =
+    svg_rects (level+1) a @ rect ~info ~level r
+  and svg_rects level a =
+    list_flatmap_array (svg_rect level) a
 
-  let treemap t =
-    let (T.Node ((_,r),_)) = t in
-    M.(svg ~a:[
-        a_width (4000., Some `Px) ; a_height (2000., Some `Px) ;
+  let treemap (T.Node ((_,r),a)) =
+    let a = [
+        (* a_style "width:100%;height:auto"; *)
         viewbox_of_rect r ;
-      ] (
-        (* title (txt @@ Printf.sprintf "Tree layout -- Seed: %i" seed):: *)
-        svg_rects t
-      ))
+      ]
+    and t = (
+      Svg.(title (txt @@ Printf.sprintf "Module treemap"))::
+      svg_rects 0 a
+    )
+    in
+    a, t
 
+  let svg t =
+    let a, t = treemap t in
+    Svg.svg ~a t
+  
+  let html t =
+    let attr, t = treemap t in
+    let open Html in
+    html
+      (head (title (txt "Treemap")) [])
+      (body [svg ~a:attr t])
+  
 end
 
-let svg = Svg.treemap
+let svg = Doc.svg
+let html = Doc.html
+let doc = html
