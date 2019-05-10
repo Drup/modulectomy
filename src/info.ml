@@ -13,12 +13,12 @@ type kind =
   | Unknown
 
 let to_string = function
-  | Value -> "v"
-  | Function -> "f"
-  | Module -> "M"
-  | Functor -> "F"
-  | Primitive -> "P"
-  | Unknown -> "U"
+  | Value -> "value"
+  | Function -> "function"
+  | Module -> "module"
+  | Functor -> "functor"
+  | Primitive -> "primitive"
+  | Unknown -> "unknown"
 
 type data = {
   size : size option;
@@ -41,7 +41,7 @@ module T = struct
 
   type 'a t = T of 'a node SMap.t
   and 'a node =
-    { value : 'a list ; children : 'a t }
+    { value : 'a ; children : 'a t }
 
   let empty = T SMap.empty
   
@@ -107,11 +107,15 @@ let prefix_filename (T.T t) =
     | [] 
     | {location = None ; _ } :: _ ->
       let i = "<unknown>" in
-      let data = T.{value = [] ; children = T (SMap.singleton prefix data)} in
+      let v = { kind = Module; location = Some (i,-1,-1); size = None; id = None}
+      in
+      let data = T.{value = [v] ; children = T (SMap.singleton prefix data)} in
       add map i data
     | {location = Some (file, _,_) ; _} :: _ ->
       let i = Fpath.(filename @@ v file) in
-      let data = T.{value = [] ; children = T (SMap.singleton prefix data)} in
+      let v = { kind = Module; location = Some (i,-1,-1); size = None; id = None}
+      in
+      let data = T.{value = [v] ; children = T (SMap.singleton prefix data)} in
       add map i data
   in
   T.T (SMap.fold f t SMap.empty)

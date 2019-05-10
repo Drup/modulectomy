@@ -105,6 +105,11 @@ let get_position posmap id =
   PosMap.find_opt pi.idx posmap >>= fun (_, pos) ->
   Some pos
 
+let is_position_in_js = function
+  | Some (file,_,_) ->
+    Fpath.(get_ext @@ v file) = ".js"
+  | None -> false
+
 let info_of_js endpos posmap js : _ Iter.t =
   let open Javascript in
   let mk scope ?id kind size k =
@@ -112,6 +117,7 @@ let info_of_js endpos posmap js : _ Iter.t =
     | None -> ()
     | Some name ->
       let pos = get_position posmap id in
+      let kind = if is_position_in_js pos then Info.Primitive else kind in
       let data = Info.{ size ; id = None; location = pos ; kind } in
       k (scope @ [name], data)
   in 

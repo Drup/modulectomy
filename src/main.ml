@@ -21,7 +21,7 @@ let squarify infos =
   |> Info.prefix_filename
   (* |> Format.printf "%a@." Info.T.pp *)
   |> Treemap.of_tree
-  |> Treemap.cut 2
+  |> (fun (r, t) -> r, Iter.map (Treemap.cut 1) t)
   |> Treemap.doc
   |> Format.printf "%a@." (Tyxml.Html.pp ())
 
