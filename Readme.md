@@ -11,4 +11,4 @@ See [an example](https://drup.github.io/modulectomy/example/planet.html).
 
 ## Install
 
-Requires a patched version of js_of_ocaml available [here](https://github.com/ocsigen/js_of_ocaml/pull/795).
+Requires a patched version of js_of_ocaml available [here](https://github.com/ocsigen/js_of_ocaml/pull/795) and the dev version of `tree_layout`.
