@@ -33,21 +33,33 @@ let guess file =
 
 let programs_arg =
   let open Cmdliner in
-  let annot f t = Term.(pure (List.map (fun x -> (x, f x))) $ t) in
-  let elf_args = 
-    let i = Arg.info ~docv:"BIN" ["elf"] in
-    annot (fun _ -> Elf) Arg.(value & opt_all file [] i)
+  let flatten x = Term.(pure List.flatten $ x) in
+  let annot f t =
+    let g l = List.map (fun x -> (x, f x)) l in
+    Term.(pure g $ t) in
+  let elf_args =
+    let doc = "Native ELF (Linux) binaries. Requires the $(b,owee) library. For better results, the binary file should have been compiled with debug information." in
+    let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
+    annot (fun _ -> Elf) @@ flatten Arg.(value & opt_all (list file) [] i)
   in
-  let js_args = 
-    let i = Arg.info ~docv:"JS" ["js"] in
-    annot (fun _ -> Elf) Arg.(value & opt_all file [] i)
+  let js_args =
+    let doc = "Javascript filed compiled with $(b,js_of_ocaml). For better results, source maps should be available." in
+    let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"JS,..." ["js"] in
+    annot (fun _ -> Js) @@ flatten Arg.(value & opt_all (list file) [] i)
   in
   let guess_args =
-    let i = Arg.info ~docv:"FILE" [] in
+    let doc = "OCaml compiled files that need to be analyzed. Can be one of formats described in $(b,FORMATS). By default, the format is guessed."
+    in
+    let i = Arg.info ~doc ~docv:"FILE" [] in
     annot guess Arg.(value & pos_all file [] i)
   in
-  let take_all js elfs guesses = js @ elfs @ guesses in
-  Term.(pure take_all $ js_args $ elf_args $ guess_args)
+  let take_all js elfs guesses =
+    let l = js @ elfs @ guesses in
+    match l with
+    | [] -> `Help (`Auto, None)
+    | l -> `Ok l
+  in
+  Term.(ret (pure take_all $ js_args $ elf_args $ guess_args))
 
 let squarify_files files =
   let rec get_all = function
@@ -62,7 +74,8 @@ let squarify_files files =
 
 let main_term =
   let open Cmdliner in
-  let i = Term.info "modulectomy" in
+  let doc = "Dissect OCaml compiled programs, and weight their content." in
+  let i = Term.info ~doc "modulectomy" in
   Term.(term_result (pure squarify_files $ programs_arg)), i
 
 let () =

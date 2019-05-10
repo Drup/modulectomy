@@ -1,7 +1,9 @@
 # Modulectomy
 
-Visualize the size of your OCaml programs and the contributions by
-various libraries and modules. Very WIP.
+Dissect OCaml compiled programs, and weight their content.
+
+`modulectomy` allows you to visualize the size of your OCaml programs and the
+contributions by various libraries and modules. Very WIP.
 
 Currently support:
 - js files compiled with `js_of_ocaml`, if they have source maps.

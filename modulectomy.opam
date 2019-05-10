@@ -1,7 +1,7 @@
 opam-version: "2.0"
 name: "modulectomy"
 version: "0.1"
-synopsis: "Visualize the size of your OCaml programs"
+synopsis: "Dissect OCaml compiled programs, and weight their content"
 maintainer: "Gabriel Radanne <drupyog@zoho.com>"
 authors: "Gabriel Radanne <drupyog@zoho.com>"
 license: "ISC"
