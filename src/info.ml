@@ -69,22 +69,6 @@ module T = struct
   let of_iter l : _ t =
     Iter.fold (fun t (k,v) -> insert t k v) empty l
 
-  let to_box (T tree) =
-    let as_tree (prefix, {value ; children = T m}) =
-      let x =
-        match value with
-        | [] -> PrintBox.line prefix
-        | v -> PrintBox.asprintf "@[<v2>%s:@,%a@]" prefix (CCFormat.list pp_data) v
-      in
-      let l = SMap.bindings m in
-      x, l
-    in
-    let f = PrintBox.mk_tree as_tree in
-    let l = SMap.bindings tree in
-    PrintBox.vlist_map ~bars:false f l
-
-  let pp ppf x = PrintBox_text.pp ppf (to_box x)
-
   let rec union (T t1) (T t2) =
     T (SMap.union union_node t1 t2)
   and union_node _ v1 v2 =

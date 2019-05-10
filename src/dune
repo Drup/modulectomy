@@ -7,7 +7,7 @@
    js_of_ocaml.compiler
    tree_layout tyxml
    iter containers containers.data fpath
-   tyre printbox
+   tyre
  )
 )
   
