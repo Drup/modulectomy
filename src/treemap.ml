@@ -63,32 +63,35 @@ module Doc = struct
   open Tree_layout.Common
 
   let css = {|
-.children {
-  fill:transparent;
-  stroke:black;
+.functor {
+  fill:#867613;
 }
-.node,.leaf {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.function {
+  fill:#F1E8AE;
 }
-.function > rect,.functor > rect {
-  fill:#000AA1;
-  stroke:black;
+.module {
+  fill:#123557;
 }
-.value > rect,.module > rect{
-  fill:#E4F866;
-  stroke:black;
+.value {
+  fill:#74899D;
 }
-.primitive > rect {
-  fill:#FFB000;
-  stroke:black;
+.primitive {
+  fill:#CE6C6C;
 }
-.unknown > rect {
+.unknown {
   fill:#6AFF8F;
-  stroke:black;
 }
-.label {
+.border {
+  stroke:black;
+  fill:none;
+}
+.label,.header {
+  font-family:monospace;
   fill:black;
+  stroke:none;
+}
+.functor > text, .module > text {
+  fill:white;
 }
 |}
 
@@ -116,31 +119,45 @@ module Doc = struct
     in
     Svg.(title (txt s))
   
-  let mk_rect ~level { p ; w ; h } =
+  let mk_border ~level { p ; w ; h } =
+    let stroke = exp (-. 2. *. float level) in
+    Svg.[
+      rect ~a:[
+        a_class ["border"] ;
+        a_x (p.x, None) ; a_y (p.y, None) ;
+        a_width (w, None) ; a_height (h, None) ;
+        a_stroke_width (stroke, None) ;
+      ] []
+    ]
+  let mk_rect { p ; w ; h } =
     Svg.[
       rect ~a:[
         a_x (p.x, None) ; a_y (p.y, None) ;
         a_width (w, None) ; a_height (h, None) ;
-        a_stroke_width (exp (-. 2. *. float level), None) ;
       ] []
     ]
 
   let a_center_position { p ; w ; h } = Svg.[
-    a_x_list [p.x +. w/.2., None] ;
-    a_y_list [p.y +. h/.2., None] ;
-    a_text_anchor `Middle;
-    a_dy_list [0.4, Some `Em];
-  ]
-  let a_left_position { p ; w = _ ; h } = Svg.[
-    a_x_list [p.x, None] ;
-    a_y_list [p.y +. h, None] ;
-    a_text_anchor `Start;
-    (* a_dy_list [0.4, Some `Em]; *)
-  ]
+      a_x_list [p.x +. w/.2., None] ;
+      a_y_list [p.y +. h/.2., None] ;
+      a_text_anchor `Middle;
+    ]
+  let a_left_position p = Svg.[
+      a_x_list [p.x, None] ;
+      a_dx_list [1.,Some `Px] ;
+      a_y_list [p.y, None] ;
+      a_text_anchor `Start;
+      (* a_dy_list [0.4, Some `Em]; *)
+    ]
 
-  let leaf ~info ~level pos = 
+  let leaf ~info ~level pos =
+    (* let angle = -.180.*.tanh (pos.h/.pos.w)/.Float.pi in
+     * let center = pos.p.x+.pos.w/.2. , pos.p.y+.pos.h/.2. in *)
     let label = 
       Svg.[text ~a:(
+          a_class ["label"] ::
+          a_dominant_baseline `Central ::
+          (* a_transform [`Rotate ((angle, None), Some center)] :: *)
           (a_font_size @@ string_of_float @@ (pos.w+.pos.h)/.20.) ::
           a_center_position pos;
         ) [txt @@ info.name] ;
@@ -149,30 +166,27 @@ module Doc = struct
     let title = title_of_info info @@ area_of_pos pos in
     Svg.g
       ~a:[Svg.a_class ("leaf" :: a_info info)]
-      (title :: mk_rect ~level pos @ label)
+      (title :: mk_rect pos @ label @ mk_border ~level pos)
 
-  let header_node ~info ~level pos =
-    let header_pos = {pos with h = pos.h/.11.} in
-    let label = 
+  let header_node ~info pos =
+    let header_pos = {pos with h = pos.h/.13.} in
+    let label =
       Svg.[text ~a:(
-          a_class ["label"] ::
-          (a_font_size @@ string_of_float @@ (pos.w+.pos.h)/.20.) ::
-          a_left_position header_pos;
+          a_class ["header"] ::
+          a_dominant_baseline `Hanging ::
+          (a_font_size @@ string_of_float @@ header_pos.h) ::
+          a_left_position pos.p;
         ) [txt @@ info.name] ;
         ]
     in
-    mk_rect ~level header_pos @ label
+    mk_rect pos @ label
     
   let node ~info ~level pos children =
-    let content_pos =
-      {pos with p = {pos.p with y = pos.p.y +. pos.h/.11.} ; h = pos.h -. pos.h/.11.}
-    in
     let title = title_of_info info @@ area_of_pos pos in
-    let header = header_node ~info ~level pos in
-    let content = mk_rect ~level content_pos in
+    let header = header_node ~info pos in
     Svg.g
       ~a:[Svg.a_class ("node" :: a_info info)]
-      (title :: header @ content @ children)
+      (title :: header @ children @ mk_border ~level pos)
 
   let list_map_array f a = List.map f @@ Array.to_list a
   let list_flatmap_array f a =
