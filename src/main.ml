@@ -19,8 +19,8 @@ let squarify infos =
   |> Info.import
   |> Info.diff_size
   |> Info.prefix_filename
+  |> Info.cut 2
   |> Treemap.of_tree
-  |> Treemap.cut 1
   |> Treemap.doc
   |> Format.printf "%a@." (Tyxml.Html.pp ())
 

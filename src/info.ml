@@ -138,3 +138,26 @@ let prefix_filename ((T.T t) : t) =
       add map modname data
   in
   T.T (SMap.fold f t SMap.empty)
+
+
+
+let rec compute_area ?(size=0L) ((T.T t) : t) =
+  let aux _ T.{ value; children } x =
+    let s = compute_area ?size:value.size children in
+    Int64.add x s
+  in
+  SMap.fold aux t size
+
+let rec cut_tree n ((T.T t) : t) =
+  let aux tree = cut_node n tree in
+  T.T (SMap.map aux t)
+and cut_node n T.{ value; children } =
+  if n > 0 then
+    let children = cut_tree (n-1) children in
+    T.{ value; children }
+  else
+    let size = compute_area ?size:value.size children in
+    let value = {value with size = Some size} in
+    T.{ value; children = T.T SMap.empty }
+
+let cut n t = cut_tree n t

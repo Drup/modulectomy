@@ -3,6 +3,7 @@ module T = Tree_layout
 
 type node = {
   path : Info.name list ;
+  label : Info.name ;
   size : float ;
   data : Info.data
 }
@@ -22,14 +23,20 @@ let rec to_tree_layout path (Info.T.T t) =
   Info.SMap.to_seq t
   |> Iter.map (node_to_tree_layout path)
   |> Iter.sort ~cmp:(fun t1 t2 -> - (Float.compare (area t1) (area t2)))
-      
-and node_to_tree_layout path (name, {value; children}) =
-  let path = path @ [name] in
-  let a = to_tree_layout path children in
-  let size =
-    CCOpt.map_or ~default:0. Int64.to_float value.Info.size
+
+and node_to_tree_layout path (label, {value; children}) =
+  let new_path = path @ [label] in
+  let a = to_tree_layout new_path children in
+  let size, children = match value.Info.size, Iter.to_array a with
+    | (None | Some 0L), a -> 0., a
+    | s, [||] -> CCOpt.map_or ~default:0. Int64.to_float s , [||]
+    | Some i, a ->
+      let size = Int64.to_float i in
+      let v = { path = new_path ; label = "" ; size ; data = value } in
+      let internal_node = T.Node (v, [||]) in
+      0., Array.append [|internal_node|] a 
   in
-  Tree_layout.Node ({path ; size ; data = value}, Iter.to_array a)
+  Tree_layout.Node ({path ; label ; size ; data = value}, children)
 
 
 let ratio = 1.7
@@ -49,14 +56,6 @@ let of_tree l =
   let l = to_tree_layout [] l in
   let rect = rect_of_tree l in
   { rect ; trees = Tree_layout.treemap ~sub ~area rect l}
-
-
-let rec cut_tree n (T.Node (x, a)) =
-  if n <= 0
-  then T.Node (x, [||])
-  else Node (x, Array.map (cut_tree (n-1)) a)
-let cut n t =
-  { t with trees = Iter.map (cut_tree n) t.trees }
 
 module Doc = struct
   open Tyxml
@@ -136,7 +135,7 @@ module Doc = struct
     let s =
       Format.asprintf
         "name: %a@.size: %a@.type: %s"
-        pp_path info.path
+        pp_path (info.path @ [info.label])
         pp_size area
         (Info.to_string info.data.kind)
         (* pp_file info.data.location *)
@@ -184,7 +183,7 @@ module Doc = struct
           (* a_transform [`Rotate ((angle, None), Some center)] :: *)
           (a_font_size @@ string_of_float @@ (pos.w+.pos.h)/.20.) ::
           a_center_position pos;
-        ) [txt @@ List.hd @@ List.rev info.path] ;
+        ) [txt @@ info.label] ;
         ]
     in
     let title = title_of_info info @@ area_of_pos pos in
@@ -200,7 +199,7 @@ module Doc = struct
           a_dominant_baseline `Hanging ::
           (a_font_size @@ string_of_float @@ header_pos.h) ::
           a_left_position pos.p;
-        ) [txt @@ List.hd @@ List.rev info.path] ;
+        ) [txt @@ info.label] ;
         ]
     in
     mk_rect pos @ label
