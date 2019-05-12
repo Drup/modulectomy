@@ -17,6 +17,7 @@ depends: [
   "iter"
   "containers"
   "fpath"
+  "tyxml"
 ]
 build: [
   ["jbuilder" "subst"] {pinned}
