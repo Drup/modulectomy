@@ -16,11 +16,11 @@ let get_file (file, ty) = match ty with
 
 let squarify infos =
   infos
-  |> Iter.filter (fun (_,x) -> x.Info.size > Some 0L)
-  |> Info.T.of_iter
+  |> Info.import
+  |> Info.diff_size
   |> Info.prefix_filename
   |> Treemap.of_tree
-  |> (fun (r, t) -> r, Iter.map (Treemap.cut 2) t)
+  |> Treemap.cut 1
   |> Treemap.doc
   |> Format.printf "%a@." (Tyxml.Html.pp ())
 

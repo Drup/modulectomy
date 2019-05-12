@@ -22,10 +22,18 @@ let to_string = function
 
 type data = {
   size : size option;
-  id : int option ;
   location : location option ;
   kind : kind ;
 }
+let mk ?size ?location kind = { size ; location ; kind }
+let coalesce data1 data2 =
+  let open CCOpt.Infix in
+  let size = Int64.add <$> data1.size <*> data2.size in
+  let location = data1.location <+> data2.location in
+  (* assert (data1.kind = data2.kind); *)
+  let kind = data1.kind in
+  { size ; location ; kind }
+
 let pp_data ppf d =
   Format.fprintf ppf "%s %a %a"
     (to_string d.kind)
@@ -39,9 +47,9 @@ type lid = name list
 module SMap = CCMap.Make(String)
 module T = struct
 
-  type 'a t = T of 'a node SMap.t
-  and 'a node =
-    { value : 'a ; children : 'a t }
+  type t = T of node SMap.t
+  and node =
+    { value : data ; children : t }
 
   let empty = T SMap.empty
   
@@ -56,30 +64,58 @@ module T = struct
 
   and insert_node node l x = match l with
     | [] ->
-      { node with value = x :: node.value }
+      {node with value = coalesce node.value x}
     | l ->
       let children = insert node.children l x in
       {node with children}
   
   and singleton l v = match l with
-    | [] -> { value = [v] ; children = empty }
+    | [] -> { value = v ; children = empty }
     | name::rest ->
-      {value = [] ; children = T (SMap.singleton name (singleton rest v)) }
+      let value = mk Module in
+      {value ; children = T (SMap.singleton name (singleton rest v)) }
 
-  let of_iter l : _ t =
+  let of_iter l : t =
     Iter.fold (fun t (k,v) -> insert t k v) empty l
 
   let rec union (T t1) (T t2) =
     T (SMap.union union_node t1 t2)
   and union_node _ v1 v2 =
     Some {
-      value = v1.value @ v2.value ;
+      value = coalesce v1.value v2.value ;
       children = union v1.children v2.children ;
-    }  
+    }
 end
 
+type t = T.t
 
-let prefix_filename (T.T t) =
+let import = T.of_iter
+
+let adjust_size ~total ~children_size =
+  match total with
+  | None -> children_size, None
+  | Some s ->
+    assert (s >= children_size);
+    let size = Int64.sub s children_size in
+    s, Some size
+
+let rec diff_size_tree ((T.T t) : t) =
+  let aux v tree (total_size, trees) =
+    let size, tree = diff_size_node tree in
+    Int64.add size total_size, SMap.add v tree trees
+  in
+  let total_size, trees = SMap.fold aux t (0L,SMap.empty) in
+  total_size, T.T trees
+and diff_size_node T.{ value; children } =
+  let children_size, children = diff_size_tree children in
+  let total_size, size = adjust_size ~total:value.size ~children_size in
+  let value = {value with size} in
+  total_size, T.{ value; children }
+
+let diff_size t = snd @@ diff_size_tree t
+
+
+let prefix_filename ((T.T t) : t) =
   let add map prefix data =
     SMap.update prefix (function
         | None -> Some data
@@ -88,21 +124,17 @@ let prefix_filename (T.T t) =
   in
   let f prefix data map =
     match data.T.value with
-    | [] 
-    | {location = None ; _ } :: _ ->
+    | {location = None ; _ }  ->
       let i = "<unknown>" in
-      let v = { kind = Module; location = None; size = None; id = None}
-      in
-      let data = T.{value = [v] ; children = T (SMap.singleton prefix data)} in
+      let value = mk Unknown in
+      let data = T.{value ; children = T (SMap.singleton prefix data)} in
       add map i data
-    | {location = Some (file, _,_) ; _} :: _ ->
+    | {location = Some (file, _,_) ; _} ->
       let modname =
         Fpath.(filename @@ v file)
       in
-      let v =
-        { kind = Module; location = Some (file,-1,-1); size = None; id = None}
-      in
-      let data = T.{value = [v] ; children = T (SMap.singleton prefix data)} in
+      let value = mk ~location:(file,-1,-1) Module in
+      let data = T.{value ; children = T (SMap.singleton prefix data)} in
       add map modname data
   in
   T.T (SMap.fold f t SMap.empty)

@@ -82,8 +82,8 @@ let mk_info_tbl buffer sections =
     in
     match classify_symb ~tbl addr with
     | None -> ()
-    | Some (name, id, kind) ->
-      AddrTbl.add h v (name, {Info. id; kind; size; location})
+    | Some (name, _id, kind) ->
+      AddrTbl.add h v (name, Info.mk ?size ?location kind)
   in
   Symbol_table.iter symtbl ~f ;
   h

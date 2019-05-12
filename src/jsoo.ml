@@ -118,7 +118,7 @@ let info_of_js endpos posmap js : _ Iter.t =
     | Some name ->
       let pos = get_position posmap id in
       let kind = if is_position_in_js pos then Info.Primitive else kind in
-      let data = Info.{ size ; id = None; location = pos ; kind } in
+      let data = Info.mk ?size ?location:pos kind in
       k (scope @ [name], data)
   in 
   let rec list f (scope, prevloc) l k = match l with

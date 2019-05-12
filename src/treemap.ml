@@ -1,19 +1,21 @@
 
 module T = Tree_layout
 
-
 type node = {
   path : Info.name list ;
   size : float ;
   data : Info.data
 }
+type t = {
+  rect : T.Common.rectangle ;
+  trees : (node * T.Common.rectangle) T.tree Iter.t ;
+}
 
 let rec area = function
   | Tree_layout.Node (x,[||]) -> x.size
-  | Node (_x, a) ->
-    let v = areal @@ Iter.of_array a in
-    (* assert (1.1 *. x.size >= v); *)
-    1.1 *. v
+  | Node (v, a) ->
+    let s = areal @@ Iter.of_array a in
+    1.1 *. (s +. v.size)
 and areal a = Iter.sumf @@ Iter.map area a
 
 let rec to_tree_layout path (Info.T.T t) =
@@ -25,14 +27,9 @@ and node_to_tree_layout path (name, {value; children}) =
   let path = path @ [name] in
   let a = to_tree_layout path children in
   let size =
-    match value with
-    | [] -> areal a
-    | l -> 
-      Iter.of_list l
-      |> Iter.filter_map (fun x -> CCOpt.map Int64.to_float x.Info.size)
-      |> Iter.sumf
+    CCOpt.map_or ~default:0. Int64.to_float value.Info.size
   in
-  Tree_layout.Node ({path ; size ; data = CCList.hd value}, Iter.to_array a)
+  Tree_layout.Node ({path ; size ; data = value}, Iter.to_array a)
 
 
 let ratio = 1.7
@@ -50,14 +47,16 @@ let sub { Tree_layout.Common. p ; w ; h } =
   Tree_layout.Common.{ p ; w ; h = h'} 
 let of_tree l =
   let l = to_tree_layout [] l in
-  let r = rect_of_tree l in
-  r, Tree_layout.treemap ~sub ~area r l
+  let rect = rect_of_tree l in
+  { rect ; trees = Tree_layout.treemap ~sub ~area rect l}
 
 
-let rec cut n (T.Node (x, a)) =
+let rec cut_tree n (T.Node (x, a)) =
   if n <= 0
   then T.Node (x, [||])
-  else Node (x, Array.map (cut (n-1)) a)
+  else Node (x, Array.map (cut_tree (n-1)) a)
+let cut n t =
+  { t with trees = Iter.map (cut_tree n) t.trees }
 
 module Doc = struct
   open Tyxml
@@ -239,12 +238,12 @@ module Doc = struct
     in
     a, t
 
-  let svg (r, t) =
-    let a, t = treemap r t in
+  let svg {rect; trees} =
+    let a, t = treemap rect trees in
     Svg.svg ~a t
   
-  let html (r, t) =
-    let attr, t = treemap r t in
+  let html {rect; trees} =
+    let attr, t = treemap rect trees in
     let open Html in
     html
       (head (title (txt "Treemap")) [style [Unsafe.data css]])
