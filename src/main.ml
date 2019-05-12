@@ -19,9 +19,8 @@ let squarify infos =
   |> Iter.filter (fun (_,x) -> x.Info.size > Some 0L)
   |> Info.T.of_iter
   |> Info.prefix_filename
-  (* |> Format.printf "%a@." Info.T.pp *)
   |> Treemap.of_tree
-  |> (fun (r, t) -> r, Iter.map (Treemap.cut 1) t)
+  |> (fun (r, t) -> r, Iter.map (Treemap.cut 2) t)
   |> Treemap.doc
   |> Format.printf "%a@." (Tyxml.Html.pp ())
 

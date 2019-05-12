@@ -91,15 +91,18 @@ let prefix_filename (T.T t) =
     | [] 
     | {location = None ; _ } :: _ ->
       let i = "<unknown>" in
-      let v = { kind = Module; location = Some (i,-1,-1); size = None; id = None}
+      let v = { kind = Module; location = None; size = None; id = None}
       in
       let data = T.{value = [v] ; children = T (SMap.singleton prefix data)} in
       add map i data
     | {location = Some (file, _,_) ; _} :: _ ->
-      let i = Fpath.(filename @@ v file) in
-      let v = { kind = Module; location = Some (i,-1,-1); size = None; id = None}
+      let modname =
+        Fpath.(filename @@ v file)
+      in
+      let v =
+        { kind = Module; location = Some (file,-1,-1); size = None; id = None}
       in
       let data = T.{value = [v] ; children = T (SMap.singleton prefix data)} in
-      add map i data
+      add map modname data
   in
   T.T (SMap.fold f t SMap.empty)
