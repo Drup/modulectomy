@@ -1,6 +1,6 @@
 open Owee_elf
 module Symbol = Symbol_table.Symbol
-open CCOpt.Infix
+open CCOption.Infix
 
 let re_classify_caml =
   let open Tyre in
@@ -58,7 +58,7 @@ let mk_location_tbl buffer sections =
         if state.end_sequence then
           tbl
         else
-          let filename = CCOpt.get_or ~default:"" @@ get_filename header state in
+          let filename = CCOption.get_or ~default:"" @@ get_filename header state in
           AddrMap.add
             (Int64.of_int state.address)
             (filename, state.line, state.col)
@@ -75,17 +75,75 @@ let mk_info_tbl buffer sections =
   Owee_elf.find_string_table buffer sections >|= fun tbl ->
   let h = AddrTbl.create 17 in
   let f addr =
-    let v = Symbol.value addr in
-    let size = Some (Symbol.size_in_bytes addr) in
-    let location =
-      AddrMap.find_opt v loctbl
-    in
-    match classify_symb ~tbl addr with
-    | None -> ()
-    | Some (name, _id, kind) ->
-      AddrTbl.add h v (name, Info.mk ?size ?location kind)
+    match Symbol.type_attribute addr with
+    | Symbol.File -> ()
+    | _ ->
+      match Symbol.name addr tbl with
+      | Some name when
+          (String.length name >= 9 &&
+           (String.(equal (sub name 0 8) "cpu_irq_") ||
+            String.(equal (sub name 0 9) "cpu_trap_")) ||
+           (String.length name >= 18 &&
+            String.(equal (sub name 0 18) "domain_field_caml_")))
+        -> ()
+      | _ ->
+        let v = Symbol.value addr in
+        let size = Some (Symbol.size_in_bytes addr) in
+        let location =
+          AddrMap.find_opt v loctbl
+        in
+        match classify_symb ~tbl addr with
+        | None -> ()
+        | Some (name, _id, kind) ->
+          AddrTbl.add h v (name, Info.mk ~v ?size ?location kind)
   in
   Symbol_table.iter symtbl ~f ;
+  (* look for caml_startup_code_begin / code_end / data_begin / data_end  (and caml_system) *)
+  (* remove all address that match the range begin..end *)
+  let find_begin_end modname prefix =
+    let data = ref (None, None) in
+    let f symbol =
+      match classify_symb ~tbl symbol with
+      | Some ([ "OCaml" ; name ], _, _)
+        when String.equal name (modname ^ "__" ^ prefix ^ "_begin") ->
+        data := (Some symbol, snd !data)
+      | Some ([ "OCaml" ; name ], _, _)
+        when String.equal name (modname ^ "__" ^ prefix ^ "_end") ->
+        data := (fst !data, Some symbol)
+      | _ -> ()
+    in
+    Symbol_table.iter symtbl ~f;
+    Symbol.value (Option.get (fst !data)), Symbol.value (Option.get (snd !data))
+  in
+  let startup_code = find_begin_end "startup" "code"
+  and startup_data = find_begin_end "startup" "data"
+  and system_code = find_begin_end "system" "code"
+  in
+  (* remove symbols with addresses between start..end *)
+  let in_range addr =
+    (addr >= fst startup_code && addr <= snd startup_code) ||
+    (addr >= fst startup_data && addr <= snd startup_data) ||
+    (addr >= fst system_code && addr <= snd system_code)
+  in
+  AddrTbl.filter_map_inplace
+    (fun addr v -> if in_range addr then None else Some v)
+    h;
+  (* remove the code_begin/code_end/data_begin/data_end symbols *)
+  AddrTbl.remove h (fst startup_code); AddrTbl.remove h (snd startup_code);
+  AddrTbl.remove h (fst startup_data); AddrTbl.remove h (fst startup_data);
+  AddrTbl.remove h (fst system_code); AddrTbl.remove h (snd system_code);
+  (* finally, add one symbol for startup and one for system *)
+  let startup_size =
+    Int64.add
+      (Int64.sub (snd startup_code) (fst startup_code))
+      (Int64.sub (snd startup_data) (fst startup_data))
+  and system_size =
+    Int64.sub (snd system_code) (fst system_code)
+  in
+  AddrTbl.add h (fst startup_code)
+    (["OCaml" ; "startup"], Info.mk ~size:startup_size Info.Module);
+  AddrTbl.add h (fst system_code)
+    (["OCaml" ; "system"], Info.mk ~size:system_size Info.Module);
   h
   
 let mk_buffer path = 
@@ -105,3 +163,5 @@ let get path =
   match mk_info_tbl buffer sections with
   | None -> Error `Invalid_file
   | Some h -> Ok (fun k -> AddrTbl.iter (fun _ x -> k x) h)
+
+

@@ -4,9 +4,8 @@
  (modules :standard \ main)
  (libraries
    owee
-   js_of_ocaml.compiler
    tree_layout tyxml
-   iter containers containers.data fpath
+   iter containers containers-data fpath
    tyre
  )
 )

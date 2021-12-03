@@ -21,15 +21,17 @@ and areal a = Iter.sumf @@ Iter.map area a
 
 let rec to_tree_layout path (Info.T.T t) =
   Info.SMap.to_seq t
-  |> Iter.map (node_to_tree_layout path)
-  |> Iter.sort ~cmp:(fun t1 t2 -> - (Float.compare (area t1) (area t2)))
+  |> Seq.map (node_to_tree_layout path)
+  |> List.of_seq
+  |> List.sort (fun t1 t2 -> - (Float.compare (area t1) (area t2)))
+  |> Iter.of_list
 
 and node_to_tree_layout path (label, {value; children}) =
   let new_path = path @ [label] in
   let a = to_tree_layout new_path children in
   let size, children = match value.Info.size, Iter.to_array a with
     | (None | Some 0L), a -> 0., a
-    | s, [||] -> CCOpt.map_or ~default:0. Int64.to_float s , [||]
+    | s, [||] -> CCOption.map_or ~default:0. Int64.to_float s , [||]
     | Some i, a ->
       let size = Int64.to_float i in
       let v = { path = new_path ; label = "" ; size ; data = value } in
