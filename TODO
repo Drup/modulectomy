@@ -1,0 +1,11 @@
+- need to ensure svg before and after (we didn't break it): for "normal" Linux binaries
+  --> comparing the svg visually, or generate a diff and compare that
+- question of upstreaming: removed jsoo support
+  -> containers (+ seq)
+- question: how to preserve file information for C code (mirage-crypto / gmp / ...)?
+  --> question about passing C compiler flags somewhere / somehow
+  --> works for freelist.c
+- integration into builder-web
+  - also output the ELF binary size, and the sections we're displaying in the treemap
+    --> text & data sections, no debug sections (symbol table, ...)
+    -> allow us to investigate the section-size - treemap-bytes = ???
