@@ -9,13 +9,15 @@ tags: "regex"
 homepage: "https://github.com/Drup/modulectomy"
 bug-reports: "https://github.com/Drup/modulectomy/issues"
 depends: [
-  "ocaml" {>= "4.02.0"}
-  "dune" {build}
+  "ocaml" {>= "4.08.0"}
+  "dune"
   "owee"
   "iter"
   "containers"
   "fpath"
   "tyxml"
+  "tyre"
+  "cmdliner"
 ]
 build: [
   ["dune" "subst"] {dev}
