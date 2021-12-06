@@ -10,18 +10,16 @@ homepage: "https://github.com/Drup/modulectomy"
 bug-reports: "https://github.com/Drup/modulectomy/issues"
 depends: [
   "ocaml" {>= "4.02.0"}
-  "jbuilder" {build}
+  "dune" {build}
   "owee"
-  "js_of_ocaml-compiler"
-  "tree_layout"
   "iter"
   "containers"
   "fpath"
   "tyxml"
 ]
 build: [
-  ["jbuilder" "subst"] {pinned}
-  ["jbuilder" "build" "-p" name "-j" jobs]
-  ["jbuilder" "runtest" "-p" name] {with-test}
+  ["dune" "subst"] {dev}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
 ]
 dev-repo: "git+https://github.com/Drup/modulectomy.git"
