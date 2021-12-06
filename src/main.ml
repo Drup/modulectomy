@@ -1,4 +1,5 @@
 open CCResult.Infix
+open Modulectomy
 
 type ty =
   | Elf

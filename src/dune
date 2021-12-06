@@ -1,7 +1,6 @@
 (library
- (name lib)
+ (name modulectomy)
  (public_name modulectomy)
- (wrapped false)
  (modules :standard \ main)
  (libraries
    owee
@@ -16,5 +15,5 @@
  (name main)
  (modules main)
  (public_name modulectomy)
- (libraries lib cmdliner)
+ (libraries cmdliner modulectomy)
 )
