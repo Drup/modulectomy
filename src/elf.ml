@@ -16,7 +16,7 @@ let re_classify_caml =
   let caml_lid =
     str "caml" *> terminated_list ~sep:(str"__") mid <&> final_id
   in
-  let runtime_id = str "caml_" *> id in 
+  let runtime_id = str "caml_" *> id in
   (* let unknown_caml_id = str "caml" *> pcre ".*" in *)
 
   let (-->) re f = whole_string re --> f in
@@ -28,7 +28,7 @@ let re_classify_caml =
       );
     (* unknown_caml_id --> (fun s -> ([s], Info.Unknown)); *)
   ]
-  
+
 let annot_kind k ty = match k, ty with
   | Info.Value, Symbol.Func -> Info.Function
   | Module, Symbol.Func -> Functor
@@ -40,8 +40,6 @@ let classify_symb ~tbl symb =
   match id with
   | Some (s, id, k) -> Some ("OCaml"::s, id, annot_kind k @@ Symbol.type_attribute symb)
   | None -> Some ([name], None, Info.Unknown)
-
-
 
 module AddrMap = Map.Make(Int64)
 module AddrTbl = CCHashtbl.Make(CCInt64)
@@ -69,6 +67,13 @@ let mk_location_tbl buffer sections =
   in
   aux AddrMap.empty
 
+let filtered_sym name =
+  String.length name >= 9 &&
+  (String.(equal (sub name 0 8) "cpu_irq_") ||
+   String.(equal (sub name 0 9) "cpu_trap_")) ||
+  (String.length name >= 18 &&
+   String.(equal (sub name 0 18) "domain_field_caml_"))
+
 let mk_info_tbl buffer sections =
   mk_location_tbl buffer sections >>= fun loctbl ->
   Owee_elf.find_symbol_table buffer sections >>= fun symtbl ->
@@ -79,13 +84,7 @@ let mk_info_tbl buffer sections =
     | Symbol.File -> ()
     | _ ->
       match Symbol.name addr tbl with
-      | Some name when
-          (String.length name >= 9 &&
-           (String.(equal (sub name 0 8) "cpu_irq_") ||
-            String.(equal (sub name 0 9) "cpu_trap_")) ||
-           (String.length name >= 18 &&
-            String.(equal (sub name 0 18) "domain_field_caml_")))
-        -> ()
+      | Some name when filtered_sym name -> ()
       | _ ->
         let v = Symbol.value addr in
         let size = Some (Symbol.size_in_bytes addr) in
@@ -98,40 +97,51 @@ let mk_info_tbl buffer sections =
           AddrTbl.add h v (name, Info.mk ~v ?size ?location kind)
   in
   Symbol_table.iter symtbl ~f ;
-  (* look for caml_startup_code_begin / code_end / data_begin / data_end  (and caml_system) *)
   (* remove all address that match the range begin..end *)
-  let find_begin_end modname prefix =
-    let data = ref (None, None) in
+  let find_syms names =
+    let data = ref [] in
     let f symbol =
-      match classify_symb ~tbl symbol with
-      | Some ([ "OCaml" ; name ], _, _)
-        when String.equal name (modname ^ "__" ^ prefix ^ "_begin") ->
-        data := (Some symbol, snd !data)
-      | Some ([ "OCaml" ; name ], _, _)
-        when String.equal name (modname ^ "__" ^ prefix ^ "_end") ->
-        data := (fst !data, Some symbol)
+      match Symbol.name symbol tbl with
+      | Some name when List.mem name names ->
+        data := (name, symbol) :: !data
       | _ -> ()
     in
     Symbol_table.iter symtbl ~f;
-    Symbol.value (Option.get (fst !data)), Symbol.value (Option.get (snd !data))
+    !data
   in
-  let startup_code = find_begin_end "startup" "code"
-  and startup_data = find_begin_end "startup" "data"
-  and system_code = find_begin_end "system" "code"
+  let syms = find_syms [
+      "caml_startup__code_begin"; "caml_startup__code_end";
+      "caml_startup__data_begin"; "caml_startup__data_end";
+      "caml_system__code_begin"; "caml_system__code_end";
+    ]
   in
+  let startup_code =
+    List.assoc "caml_startup__code_begin" syms |> Symbol.value,
+    List.assoc "caml_startup__code_end" syms |> Symbol.value
+  and startup_data =
+    List.assoc "caml_startup__data_begin" syms |> Symbol.value,
+    List.assoc "caml_startup__data_end" syms |> Symbol.value
+  and system_code =
+    List.assoc "caml_system__code_begin" syms |> Symbol.value,
+    List.assoc "caml_system__code_end" syms |> Symbol.value
+  in
+  let ranges = [
+    fst startup_code, snd startup_code;
+    fst startup_data, snd startup_data;
+    fst system_code, snd system_code;
+  ] in
   (* remove symbols with addresses between start..end *)
   let in_range addr =
-    (addr >= fst startup_code && addr <= snd startup_code) ||
-    (addr >= fst startup_data && addr <= snd startup_data) ||
-    (addr >= fst system_code && addr <= snd system_code)
+    List.exists (fun (start, stop) ->
+        (addr >= start && addr <= stop))
+      ranges
   in
   AddrTbl.filter_map_inplace
-    (fun addr v -> if in_range addr then None else Some v)
-    h;
+    (fun addr v -> if in_range addr then None else Some v) h;
   (* remove the code_begin/code_end/data_begin/data_end symbols *)
-  AddrTbl.remove h (fst startup_code); AddrTbl.remove h (snd startup_code);
-  AddrTbl.remove h (fst startup_data); AddrTbl.remove h (fst startup_data);
-  AddrTbl.remove h (fst system_code); AddrTbl.remove h (snd system_code);
+  List.iter (fun (start, stop) ->
+      AddrTbl.remove h start; AddrTbl.remove h stop)
+    ranges;
   (* finally, add one symbol for startup and one for system *)
   let startup_size =
     Int64.add
@@ -140,13 +150,15 @@ let mk_info_tbl buffer sections =
   and system_size =
     Int64.sub (snd system_code) (fst system_code)
   in
+  let startup_loc = AddrMap.find_opt (fst startup_code) loctbl in
   AddrTbl.add h (fst startup_code)
-    (["OCaml" ; "startup"], Info.mk ~size:startup_size Info.Module);
+    (["OCaml" ; "startup"], Info.mk ?location:startup_loc ~size:startup_size Info.Module);
+  let system_loc = AddrMap.find_opt (fst system_code) loctbl in
   AddrTbl.add h (fst system_code)
-    (["OCaml" ; "system"], Info.mk ~size:system_size Info.Module);
+    (["OCaml" ; "system"], Info.mk ?location:system_loc ~size:system_size Info.Module);
   h
-  
-let mk_buffer path = 
+
+let mk_buffer path =
   let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
   let len = Unix.lseek fd 0 Unix.SEEK_END in
   let map =
