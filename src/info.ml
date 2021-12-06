@@ -129,6 +129,10 @@ and diff_size_node T.{ value; children } =
         (Int64.sub (Option.get ce.value.v) (Option.get cb.value.v))
         (Int64.sub (Option.get de.value.v) (Option.get db.value.v))
     in
+    let size = match SMap.find_opt "primitives" child_nodes with
+      | None -> size
+      | Some x -> Int64.add size (Option.get x.value.size)
+    in
     let value = { value with size = Some size } in
     size, T.{ value ; children = T.empty }
   | _ ->

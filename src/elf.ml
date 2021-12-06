@@ -97,13 +97,15 @@ let mk_info_tbl buffer sections =
           AddrTbl.add h v (name, Info.mk ~v ?size ?location kind)
   in
   Symbol_table.iter symtbl ~f ;
-  (* remove all address that match the range begin..end *)
+  let other_syms = Hashtbl.create 7 in
   let find_syms names =
     let data = ref [] in
     let f symbol =
       match Symbol.name symbol tbl with
       | Some name when List.mem name names ->
         data := (name, symbol) :: !data
+      | Some name ->
+        Tables.categorize_symbol other_syms name symbol
       | _ -> ()
     in
     Symbol_table.iter symtbl ~f;
@@ -138,6 +140,11 @@ let mk_info_tbl buffer sections =
   in
   AddrTbl.filter_map_inplace
     (fun addr v -> if in_range addr then None else Some v) h;
+  Hashtbl.iter (fun k (size, vs) ->
+      List.iter (AddrTbl.remove h) vs;
+      let some_addr = List.hd vs in
+      AddrTbl.add h some_addr (["OCaml" ; k ; "primitives"], Info.mk ~size Info.Module))
+    other_syms;
   (* remove the code_begin/code_end/data_begin/data_end symbols *)
   List.iter (fun (start, stop) ->
       AddrTbl.remove h start; AddrTbl.remove h stop)
