@@ -1321,6 +1321,114 @@ let nolibc_syms = S.of_list [
 "write";
 ]
 
+let mirage_crypto_syms = S.of_list [
+"md5_do_chunk";
+"sha1_do_chunk";
+"sha256_do_chunk";
+"k";
+"sha512_do_chunk";
+"Td0";
+"Td1";
+"Td2";
+"Td3";
+"Td4";
+"Te0";
+"Te1";
+"Te2";
+"Te3";
+"Te4";
+"rcon";
+"Df_Key";
+"Kn3";
+"KnL";
+"KnR";
+"SP1";
+"SP2";
+"SP3";
+"SP4";
+"SP5";
+"SP6";
+"SP7";
+"SP8";
+"bigbyte";
+"bytebit";
+"desfunc";
+"pc1";
+"pc2";
+"totrot";
+"poly1305_blocks";
+"poly1305_finish";
+"__cpu_rng";
+]
+
+let zarith_syms = S.of_list [
+"posmpz_dec_ui";
+"posmpz_inc_ui";
+"posmpz_init";
+"posmpz_rsh1";
+"rek_raising_fac4";
+"id_to_n";
+"limb_apprsqrt";
+"log_n_max";
+"mpz_2multiswing_1";
+"n_to_bit";
+"block_resieve";
+"fill_bitpattern";
+"first_block_primesieve";
+"id_to_n";
+"n_to_bit";
+"primegap";
+"millerrabin";
+"mod_eq_m1";
+"mod";
+"reduce";
+"log_n_max";
+"isprime";
+"limb_apprsqrt";
+"ctz_table";
+"ctz_table";
+"logbased_root";
+"logbased_root.vexp";
+"logbased_root.vlog";
+"invsqrttab";
+"powtab_decide";
+"sq_res_0x100";
+"is_kth_power";
+"logs";
+"nrtrial";
+"perfpow";
+"pow_equals";
+"abs_sub_n";
+"gcd_hook";
+"ctz_table";
+"compute_v";
+"hgcd_mul_matrix_vector";
+"jacobi_hook";
+"abs_sub_n";
+"add_signed_n";
+"div1";
+"div2";
+"hgcd_matrix_apply";
+"submul";
+"hgcd_hook";
+"div1";
+"div2";
+"hgcd_jacobi_hook";
+"hgcd_jacobi_step";
+"abs_sub_add_n";
+"DO_mpn_sublsh_n";
+"powsquaredlimb";
+"getbits";
+"redcify";
+"win_size";
+"win_size.x";
+"Mersenne_Twister_Generator";
+"mangle_seed";
+"randseed_mt";
+"Mersenne_Twister_Generator_Noseed";
+"default_state";
+]
+
 let categorize_symbol tbl name addr =
   let add_or_inc x =
     let size = Owee_elf.Symbol_table.Symbol.size_in_bytes addr in
@@ -1339,7 +1447,8 @@ let categorize_symbol tbl name addr =
            String.length name >= 4 && String.(equal (sub name 0 4) "gmp_") ||
            String.length name >= 4 && String.(equal (sub name 0 4) "mpn_") ||
            String.length name >= 4 && String.(equal (sub name 0 4) "mpz_") ||
-           String.length name >= 5 && String.(equal (sub name 0 5) "ml_z_"))
+           String.length name >= 5 && String.(equal (sub name 0 5) "ml_z_") ||
+           S.mem name zarith_syms)
   then
     add_or_inc "Zarith"
   else if (String.length name >= 8 && String.(equal (sub name 0 8) "mc_p224_") ||
@@ -1368,7 +1477,8 @@ let categorize_symbol tbl name addr =
   then
     add_or_inc "Mirage_crypto_ec"
   else if (String.length name >= 3 && String.(equal (sub name 0 3) "mc_") ||
-           String.length name >= 4 && String.(equal (sub name 0 4) "_mc_")) then
+           String.length name >= 4 && String.(equal (sub name 0 4) "_mc_") ||
+           S.mem name mirage_crypto_syms) then
     add_or_inc "Mirage_crypto"
   else if (String.length name >= 9 && String.(equal (sub name 0 9) "digestif_") ||
            String.length name >= 14 && String.(equal (sub name 0 14) "caml_digestif_")) then
