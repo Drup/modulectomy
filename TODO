@@ -6,7 +6,19 @@
   --> question about passing C compiler flags somewhere / somehow
   --> works for freelist.c
 - integration into builder-web
+  - a separate modulectomy binary
+    - builder-web invokes on demand (if a user requested a build page where no svg is available (or an old modulectomy was used))
+    - stores the output to /var/db/builder-web/YYY/UUID/treemap.svg
+    - adds the filepath and "modulectomy version number" (tree_layout, owee, modulectomy) in the database
+      - vendor owee in modulectomy? ELF-parser in OCaml
+  - we run modulectomy once on /var/db/builder-web recursively (need to update database)
+    - on every add_build, run modulectomy
+    - store the filepaths of the svgs in the database
   - also output the ELF binary size, and the sections we're displaying in the treemap
     --> text & data sections, no debug sections (symbol table, ...)
-    -> allow us to investigate the section-size - treemap-bytes = ???
+    -> allow us to investigate the (stripped) binary size - treemap-bytes = ???
+    - full binary with debug symbols
+      - we use for treemap (because it has debug symbols and a symbol table)
+      - the treemap only covers data and code sections
+      - the stripped binary (no symbol table) should be close to the reemap visualized data
 - source locations of modules (take the one from code_begin)
