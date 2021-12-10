@@ -16,7 +16,8 @@ let rec area = function
   | Tree_layout.Node (x,[||]) -> x.size
   | Node (v, a) ->
     let s = areal @@ Iter.of_array a in
-    1.1 *. (s +. v.size)
+    s +. v.size
+
 and areal a = Iter.sumf @@ Iter.map area a
 
 let rec to_tree_layout path (Info.T.T t) =
@@ -41,7 +42,7 @@ and node_to_tree_layout path (label, {value; children}) =
   Tree_layout.Node ({path ; label ; size ; data = value}, children)
 
 
-let ratio = 1.7
+let ratio = 1.
 
 let rect_of_tree t : Tree_layout.Common.rectangle =
   let a = areal t in
@@ -54,10 +55,11 @@ let sub { Tree_layout.Common. p ; w ; h } =
   let dy = h -. h' in
   let p = { p with y = p.y +. dy } in
   Tree_layout.Common.{ p ; w ; h = h'} 
+
 let of_tree l =
   let l = to_tree_layout [] l in
   let rect = rect_of_tree l in
-  { rect ; trees = Tree_layout.treemap ~sub ~area rect l}
+  { rect ; trees = Tree_layout.treemap ~area rect l}
 
 module Doc = struct
   open Tyxml
