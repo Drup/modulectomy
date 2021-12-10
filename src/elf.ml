@@ -150,19 +150,22 @@ let mk_info_tbl buffer sections =
       AddrTbl.remove h start; AddrTbl.remove h stop)
     ranges;
   (* finally, add one symbol for startup and one for system *)
-  let startup_size =
-    Int64.add
-      (Int64.sub (snd startup_code) (fst startup_code))
-      (Int64.sub (snd startup_data) (fst startup_data))
+  let startup_code_size =
+    Int64.sub (snd startup_code) (fst startup_code)
+  and startup_data_size =
+    Int64.sub (snd startup_data) (fst startup_data)
   and system_size =
     Int64.sub (snd system_code) (fst system_code)
   in
   let startup_loc = AddrMap.find_opt (fst startup_code) loctbl in
   AddrTbl.add h (fst startup_code)
-    (["OCaml" ; "startup"], Info.mk ?location:startup_loc ~size:startup_size Info.Module);
+    (["OCaml" ; "startup" ; "code"], Info.mk ?location:startup_loc ~v:(fst startup_code) ~size:startup_code_size Info.Module);
+  let startup_loc = AddrMap.find_opt (fst startup_data) loctbl in
+  AddrTbl.add h (fst startup_data)
+    (["OCaml" ; "startup" ; "data"], Info.mk ?location:startup_loc ~v:(fst startup_data) ~size:startup_data_size Info.Module);
   let system_loc = AddrMap.find_opt (fst system_code) loctbl in
   AddrTbl.add h (fst system_code)
-    (["OCaml" ; "system"], Info.mk ?location:system_loc ~size:system_size Info.Module);
+    (["OCaml" ; "system"], Info.mk ?location:system_loc ~v:(fst system_code) ~size:system_size Info.Module);
   h
 
 let mk_buffer path =
@@ -176,9 +179,33 @@ let mk_buffer path =
   Unix.close fd;
   map
 
+let print_section s =
+    let open Owee_elf in
+    Printf.printf "0x%08Lx - 0x%08Lx (VM 0x%08Lx - 0x%08Lx) section %s\n"
+      s.sh_offset (Int64.add s.sh_offset s.sh_size)
+      s.sh_addr (Int64.add s.sh_addr s.sh_size)
+      s.sh_name_str
+
 let get path =
   let buffer = mk_buffer path in
+  Printf.printf "bigarray size %d\n" (Bigarray.Array1.size_in_bytes buffer);
   let _header, sections = Owee_elf.read_elf buffer in
+  (* let check_consistency acc_offset section =
+   *   print_section section;
+   *   if acc_offset <> section.sh_offset then
+   *     Printf.printf "Offsets not consistent! section.sh_offset = %Lu, acc_offset = %Lu\n"
+   *       section.sh_offset acc_offset;
+   *   Int64.add section.sh_offset section.sh_size
+   * in *)
+  let compute_section_sizes size section =
+    if section.sh_addr <> 0L then begin
+      print_section section ;
+      Int64.add size section.sh_size
+    end else size
+  in (* 35000 bytes more in section_size than in the binary hvt *)
+  (* Array.fold_left check_consistency 0L sections |> ignore; *)
+  let section_size = Array.fold_left compute_section_sizes 0L sections in
+  Printf.printf "accounted section size %Lu\n" section_size;
   match mk_info_tbl buffer sections with
   | None -> Error `Invalid_file
   | Some h -> Ok (fun k -> AddrTbl.iter (fun _ x -> k x) h)

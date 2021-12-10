@@ -15,12 +15,29 @@ let get_file (file, ty) = match ty with
 let squarify infos =
   infos
   |> Info.import
-  |> Info.diff_size
+  |> (fun info ->
+      let size, tree = Info.diff_size_tree info in
+      Printf.printf "treemap size: %Ld \n" size;
+      let ranges = Info.find_ranges tree in
+      let compute_range_size acc (start, stop, _) =
+        Int64.add acc (Int64.sub stop start)
+      in
+      let size = List.fold_left compute_range_size 0L ranges in
+      Printf.printf "ranges size: %Lu\n" size;
+      Printf.printf "ranges:\n";
+      List.iter (fun (start, stop, _) ->
+          Printf.printf "0x%08Lx - 0x%08Lx\n" start stop)
+        (List.sort (fun (a, _, _) (b, _, _) -> compare a b) ranges);
+      Printf.printf "\n";
+      tree
+    )
+  (* |> Info.diff_size *)
   |> Info.prefix_filename
   |> Info.cut 2
   |> Treemap.of_tree
   |> Treemap.doc
-  |> Format.printf "%a@." (Tyxml.Html.pp ())
+  |> ignore
+(* |> Format.printf "%a@." (Tyxml.Html.pp ()) *)
 
 let guess file =
   match Fpath.get_ext @@ Fpath.v file with
