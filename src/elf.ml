@@ -36,10 +36,23 @@ let annot_kind k ty = match k, ty with
 
 let classify_symb ~tbl symb =
   Symbol.name symb tbl >>= fun name ->
+  Printf.printf "classifying %s\n" name;
   let id = CCResult.to_opt @@ Tyre.exec re_classify_caml name in
   match id with
-  | Some (s, id, k) -> Some ("OCaml"::s, id, annot_kind k @@ Symbol.type_attribute symb)
-  | None -> Some ([name], None, Info.Unknown)
+  | Some (s, id, k) ->
+    Printf.printf "%s classified as %s (id %d)\n"
+      (Info.to_string k)
+      (String.concat "::" s)
+      (Option.fold ~none:0 ~some:Fun.id id);
+    Some ("OCaml"::s, id, annot_kind k @@ Symbol.type_attribute symb)
+  | None ->
+    let k = match Symbol.type_attribute symb with
+      | Symbol.Func -> Info.Function
+      | Symbol.Object -> Info.Value
+      | _ -> Info.Unknown
+    in
+    Printf.printf "not an ocaml symbol %s\n" (Info.to_string k);
+    Some ([name], None, k)
 
 module AddrMap = Map.Make(Int64)
 module AddrTbl = CCHashtbl.Make(CCInt64)
@@ -142,8 +155,8 @@ let mk_info_tbl buffer sections =
     (fun addr v -> if in_range addr then None else Some v) h;
   Hashtbl.iter (fun k (size, vs) ->
       List.iter (AddrTbl.remove h) vs;
-      let some_addr = List.hd vs in
-      AddrTbl.add h some_addr (["OCaml" ; k ; "primitives"], Info.mk ~size Info.Module))
+      let first_addr = List.hd (List.sort compare vs) in
+      AddrTbl.add h first_addr (["OCaml" ; k ; "primitives"], Info.mk ~v:first_addr ~size Info.Primitive))
     other_syms;
   (* remove the code_begin/code_end/data_begin/data_end symbols *)
   List.iter (fun (start, stop) ->
@@ -158,6 +171,10 @@ let mk_info_tbl buffer sections =
     Int64.sub (snd system_code) (fst system_code)
   in
   let startup_loc = AddrMap.find_opt (fst startup_code) loctbl in
+  Printf.printf "startup code %08Lx - %08Lx\nstartup data %08Lx - %08Lx\nsystem_size %08Lx - %08Lx\n"
+    (fst startup_code) (Int64.add (fst startup_code) startup_code_size)
+    (fst startup_data) (Int64.add (fst startup_data) startup_data_size)
+    (fst system_code) (Int64.add (fst system_code) system_size);
   AddrTbl.add h (fst startup_code)
     (["OCaml" ; "startup" ; "code"], Info.mk ?location:startup_loc ~v:(fst startup_code) ~size:startup_code_size Info.Module);
   let startup_loc = AddrMap.find_opt (fst startup_data) loctbl in

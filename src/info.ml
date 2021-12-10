@@ -110,9 +110,9 @@ let adjust_size ~total ~children_size =
     let size = Int64.sub s children_size in
     s, Some size
 
-let rec diff_size_tree ((T.T t) : t) =
+let rec diff_size_tree ?(n = "") ((T.T t) : t) =
   let aux v tree (total_size, trees) =
-    let size, tree = diff_size_node v tree in
+    let size, tree = diff_size_node (n ^ ":" ^ v) tree in
     let t = match tree with None -> trees | Some t -> SMap.add v t trees in
     Int64.add size total_size, t
   in
@@ -121,6 +121,7 @@ let rec diff_size_tree ((T.T t) : t) =
 and diff_size_node v T.{ value; children } =
   match value.kind with
   | Module ->
+    Printf.printf "module %s\n" v;
     begin
       let (T child_nodes) = children in
       match
@@ -128,31 +129,33 @@ and diff_size_node v T.{ value; children } =
         SMap.find_opt "data_begin" child_nodes, SMap.find_opt "data_end" child_nodes
       with
       | Some cb, Some ce, Some db, Some de ->
-        Printf.printf "hit module %s\n" v;
+        (* Printf.printf "hit module %s\n" v; *)
         let code_size =
           Int64.sub (Option.get ce.value.v) (Option.get cb.value.v)
         and data_size =
           Int64.sub (Option.get de.value.v) (Option.get db.value.v)
         in
-        let code_size = match SMap.find_opt "primitives" child_nodes with
-          | None -> code_size
-          | Some x ->
-            let s = Option.get x.value.size in
-            Printf.printf "%Lu bytes primitives\n" s;
-            Int64.add code_size s
-        in
+        let prims = SMap.find_opt "primitives" child_nodes in
         let code_value = { cb.value with size = Some code_size }
         and data_value = { db.value with size = Some data_size }
         in
-        let c_size, T.T more_children = diff_size_tree children in
+        let c_size, T.T more_children = diff_size_tree ~n:v children in
         let children =
           SMap.add "code" { T.value = code_value ; children = T.empty }
             (SMap.singleton "data" { T.value = data_value ; children = T.empty })
         in
+        let children =
+          Option.fold
+            ~none:children
+            ~some:(fun p -> SMap.add "primitives" p children)
+            prims
+        in
         let children = SMap.union (fun _ a _ -> Some a) children more_children in
         let children = T.T children in
-        let size = Int64.(add c_size (add code_size data_size)) in
-        let value = { value with v = None ; size = Some size } in
+        let size = Int64.add code_size data_size in
+        let size = Option.fold ~none:size ~some:(fun p -> Int64.add (Option.get p.T.value.size) size) prims in
+        let size = Int64.add size c_size in
+        let value = { value with v = None } in
         size, Some T.{ value ; children }
       | _ ->
         let children_size, children = diff_size_tree children in
@@ -160,7 +163,9 @@ and diff_size_node v T.{ value; children } =
         let value = {value with size} in
         total_size, Some T.{ value; children }
     end
-  | Value -> 0L, None
+  | Value ->
+    Printf.printf "value (%s)\n" v;
+    0L, None
   | k ->
     Printf.printf "skipping kind %s (%s)\n" (to_string k) v;
     0L, None
@@ -168,55 +173,25 @@ and diff_size_node v T.{ value; children } =
 let diff_size t =
   snd @@ diff_size_tree t
 
-(* let rec find_ranges ranges ((T.T t) : t) =
- *   let aux name tree ranges = find_range_node ranges name tree in
- *   SMap.fold aux t ranges
- * and find_range_node ranges _name T.{ value ; children } =
- *   let ranges = find_ranges ranges children in
- *   match value.v, value.size with
- *   | Some our_start, Some size when size > 0L ->
- *     let our_stop = Int64.add our_start size in
- *     let added, ranges = 
- *       List.fold_left (fun (added, acc) (start, stop) ->
- *           if start <= our_start && our_stop <= stop then begin
- *             true, (start, stop) :: acc
- *           end else if our_stop = start then
- *             true, (our_start, stop) :: acc
- *           else if stop = our_start then
- *             true, (start, our_stop) :: acc
- *           else if start <= our_stop && our_stop <= stop then begin
- *             assert (our_start <= start);
- *             true, (our_start, stop) :: acc
- *           end else if start <= our_start && our_start <= stop then begin
- *             assert (our_stop >= stop);
- *             true, (start, our_stop) :: acc
- *           end else if our_start <= start && our_stop >= stop then begin
- *             true, if added then acc else (our_start, our_stop) :: acc
- *           end else
- *             added, (start, stop) :: acc)
- *         (false, []) ranges
- *     in
- *     if added then ranges else (our_start, our_stop) :: ranges
- *   | _ -> ranges *)
-
 let find_ranges t =
-  let rec find_range acc ((T.T t) : t) =
-    let aux name tree ranges = find_range_node ranges name tree in
+  let rec find_range acc name ((T.T t) : t) =
+    let aux name' tree ranges = find_range_node ranges (name ^ ":" ^ name') tree in
     SMap.fold aux t acc
   and find_range_node acc name T.{ value ; children } =
-    let acc = find_range acc children in
+    let acc = find_range acc name children in
     match value.v, value.size with
     | Some our_start, Some size when size > 0L ->
       let our_stop = Int64.add our_start size in
       (our_start, our_stop, name) :: acc
     | _ -> acc
   in
-  let triplets = find_range [] t in
+  let triplets = find_range [] "" t in
   let sorted_triplets = List.sort (fun (a, a', _) (b, b', _) ->
       match compare a b with 0 -> compare b' a' | x -> x)
       triplets
   in
-  let space = 16L in
+  sorted_triplets
+(*  let space = 0L in
   let rec merge_consequtive = function
     | (start, stop, n as t0) :: (start', stop', _n' as t1) :: tail ->
       if Int64.add stop space >= start' && start <= start' then
@@ -229,7 +204,7 @@ let find_ranges t =
         t0 :: merge_consequtive (t1 :: tail)
     | [] | _ :: [] as l -> l
   in
-  merge_consequtive sorted_triplets
+    merge_consequtive sorted_triplets *)
 
 (*
     start..stop

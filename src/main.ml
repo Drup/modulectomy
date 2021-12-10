@@ -25,9 +25,13 @@ let squarify infos =
       let size = List.fold_left compute_range_size 0L ranges in
       Printf.printf "ranges size: %Lu\n" size;
       Printf.printf "ranges:\n";
-      List.iter (fun (start, stop, _) ->
-          Printf.printf "0x%08Lx - 0x%08Lx\n" start stop)
-        (List.sort (fun (a, _, _) (b, _, _) -> compare a b) ranges);
+      let x = ref 0L in
+      List.iter (fun (start, stop, v) ->
+          Printf.printf "0x%08Lx - 0x%08Lx %s\n" start stop v;
+          if start > Int64.add !x 16L then
+            Printf.printf "  GAP before: %Ld\n"  (Int64.sub start !x);
+          x := stop)
+        ranges;
       Printf.printf "\n";
       tree
     )
