@@ -124,25 +124,23 @@ and diff_size_node v T.{ value; children } =
     Printf.printf "module %s\n" v;
     begin
       let (T child_nodes) = children in
-      match
-        SMap.find_opt "code_begin" child_nodes, SMap.find_opt "code_end" child_nodes,
-        SMap.find_opt "data_begin" child_nodes, SMap.find_opt "data_end" child_nodes
-      with
-      | Some cb, Some ce, Some db, Some de ->
+      match SMap.find_opt "code" child_nodes with
+      | Some code ->
         (* Printf.printf "hit module %s\n" v; *)
-        let code_size =
-          Int64.sub (Option.get ce.value.v) (Option.get cb.value.v)
-        and data_size =
-          Int64.sub (Option.get de.value.v) (Option.get db.value.v)
-        in
+        let data = SMap.find_opt "data" child_nodes in
         let prims = SMap.find_opt "primitives" child_nodes in
-        let code_value = { cb.value with size = Some code_size }
-        and data_value = { db.value with size = Some data_size }
+        let others =
+          SMap.remove "data"
+            (SMap.remove "code"
+               (SMap.remove "primitives" child_nodes))
         in
-        let c_size, T.T more_children = diff_size_tree ~n:v children in
+        let c_size, T.T more_children = diff_size_tree ~n:v (T.T others) in
+        let children = SMap.singleton "code" code in
         let children =
-          SMap.add "code" { T.value = code_value ; children = T.empty }
-            (SMap.singleton "data" { T.value = data_value ; children = T.empty })
+          Option.fold
+            ~none:children
+            ~some:(fun p -> SMap.add "data" p children)
+            data
         in
         let children =
           Option.fold
@@ -152,16 +150,29 @@ and diff_size_node v T.{ value; children } =
         in
         let children = SMap.union (fun _ a _ -> Some a) children more_children in
         let children = T.T children in
-        let size = Int64.add code_size data_size in
+        let size = Option.get code.value.size in
+        let size = Option.fold ~none:size ~some:(fun p -> Int64.add (Option.get p.T.value.size) size) data in
         let size = Option.fold ~none:size ~some:(fun p -> Int64.add (Option.get p.T.value.size) size) prims in
         let size = Int64.add size c_size in
         let value = { value with v = None } in
         size, Some T.{ value ; children }
-      | _ ->
-        let children_size, children = diff_size_tree children in
-        let total_size, size = adjust_size ~total:value.size ~children_size in
-        let value = {value with size} in
-        total_size, Some T.{ value; children }
+      | None ->
+        match SMap.find_opt "primitives" child_nodes with
+        | Some p ->
+          let others = SMap.remove "primitives" child_nodes in
+          let c_size, T.T more_children = diff_size_tree ~n:v (T.T others) in
+          let children = SMap.singleton "primitives" p in
+          let children = SMap.union (fun _ a _ -> Some a) children more_children in
+          let children = T.T children in
+          let size = Option.get p.value.size in
+          let size = Int64.add size c_size in
+          let value = { value with v = None } in
+          size, Some T.{ value ; children }
+        | None ->
+          let children_size, children = diff_size_tree children in
+          let total_size, size = adjust_size ~total:value.size ~children_size in
+          let value = {value with size} in
+          total_size, Some T.{ value; children }
     end
   | Value ->
     Printf.printf "value (%s)\n" v;

@@ -1361,7 +1361,7 @@ let mirage_crypto_syms = S.of_list [
 "__cpu_rng";
 ]
 
-let zarith_syms = S.of_list [
+let gmp_syms = S.of_list [
 "posmpz_dec_ui";
 "posmpz_inc_ui";
 "posmpz_init";
@@ -1430,58 +1430,63 @@ let zarith_syms = S.of_list [
 ]
 
 let categorize_symbol tbl name addr =
-  let add_or_inc x =
-    let size = Owee_elf.Symbol_table.Symbol.size_in_bytes addr in
-    let addr = Owee_elf.Symbol_table.Symbol.value addr in
-    match Hashtbl.find_opt tbl x with
-    | None -> Hashtbl.add tbl x (size, [ addr ])
-    | Some (size', addrs) -> Hashtbl.replace tbl x (Int64.add size size', addr :: addrs)
-  in
-  if S.mem name stdlib_syms then
-    add_or_inc "Stdlib"
-  else if S.mem name openlibm_syms then
-    add_or_inc "openlibm"
-  else if S.mem name nolibc_syms then
-    add_or_inc "nolibc"
-  else if (String.length name >= 5 && String.(equal (sub name 0 5) "__gmp") ||
-           String.length name >= 4 && String.(equal (sub name 0 4) "gmp_") ||
-           String.length name >= 4 && String.(equal (sub name 0 4) "mpn_") ||
-           String.length name >= 4 && String.(equal (sub name 0 4) "mpz_") ||
-           String.length name >= 5 && String.(equal (sub name 0 5) "ml_z_") ||
-           S.mem name zarith_syms)
-  then
-    add_or_inc "Zarith"
-  else if (String.length name >= 8 && String.(equal (sub name 0 8) "mc_p224_") ||
-           String.length name >= 9 && String.(equal (sub name 0 9) "mc_np224_") ||
-           String.length name >= 8 && String.(equal (sub name 0 8) "mc_p256_") ||
-           String.length name >= 9 && String.(equal (sub name 0 9) "mc_np256_") ||
-           String.length name >= 8 && String.(equal (sub name 0 8) "mc_p384_") ||
-           String.length name >= 9 && String.(equal (sub name 0 9) "mc_np384_") ||
-           String.length name >= 8 && String.(equal (sub name 0 8) "mc_p521_") ||
-           String.length name >= 9 && String.(equal (sub name 0 9) "mc_np521_") ||
-           String.length name >= 9 && String.(equal (sub name 0 9) "mc_25519_") ||
-           String.length name >= 10 && String.(equal (sub name 0 10) "mc_x25519_") ||
-           String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p224_") ||
-           String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np224_") ||
-           String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p256_") ||
-           String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np256_") ||
-           String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p384_") ||
-           String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np384_") ||
-           String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p521_") ||
-           String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np521_") ||
-           String.length name >= 3 && String.(equal (sub name 0 3) "fe_") ||
-           String.length name >= 10 && String.(equal (sub name 0 10) "x25519_ge_") ||
-           String.length name >= 6 && String.(equal (sub name 0 6) "k25519") ||
-           String.length name >= 3 && String.(equal (sub name 0 3) "ge_") ||
-           String.(equal name "point_double"))
-  then
-    add_or_inc "Mirage_crypto_ec"
-  else if (String.length name >= 3 && String.(equal (sub name 0 3) "mc_") ||
-           String.length name >= 4 && String.(equal (sub name 0 4) "_mc_") ||
-           S.mem name mirage_crypto_syms) then
-    add_or_inc "Mirage_crypto"
-  else if (String.length name >= 9 && String.(equal (sub name 0 9) "digestif_") ||
-           String.length name >= 14 && String.(equal (sub name 0 14) "caml_digestif_")) then
-    add_or_inc "Digestif"
-  else
-    ()
+  match name with
+  | None -> false
+  | Some name ->
+    let add_or_inc x =
+      let size = Owee_elf.Symbol_table.Symbol.size_in_bytes addr in
+      let addr = Owee_elf.Symbol_table.Symbol.value addr in
+      (match Hashtbl.find_opt tbl x with
+       | None -> Hashtbl.add tbl x (size, [ addr ])
+       | Some (size', addrs) -> Hashtbl.replace tbl x (Int64.add size size', addr :: addrs));
+      true
+    in
+    if S.mem name stdlib_syms then
+      add_or_inc "Stdlib"
+    else if S.mem name openlibm_syms then
+      add_or_inc "openlibm"
+    else if S.mem name nolibc_syms then
+      add_or_inc "nolibc"
+    else if (String.length name >= 5 && String.(equal (sub name 0 5) "__gmp") ||
+             String.length name >= 4 && String.(equal (sub name 0 4) "gmp_") ||
+             String.length name >= 4 && String.(equal (sub name 0 4) "mpn_") ||
+             String.length name >= 4 && String.(equal (sub name 0 4) "mpz_") ||
+             S.mem name gmp_syms)
+    then
+      add_or_inc "gmp"
+    else if String.length name >= 5 && String.(equal (sub name 0 5) "ml_z_") then
+      add_or_inc "Zarith"
+    else if (String.length name >= 8 && String.(equal (sub name 0 8) "mc_p224_") ||
+             String.length name >= 9 && String.(equal (sub name 0 9) "mc_np224_") ||
+             String.length name >= 8 && String.(equal (sub name 0 8) "mc_p256_") ||
+             String.length name >= 9 && String.(equal (sub name 0 9) "mc_np256_") ||
+             String.length name >= 8 && String.(equal (sub name 0 8) "mc_p384_") ||
+             String.length name >= 9 && String.(equal (sub name 0 9) "mc_np384_") ||
+             String.length name >= 8 && String.(equal (sub name 0 8) "mc_p521_") ||
+             String.length name >= 9 && String.(equal (sub name 0 9) "mc_np521_") ||
+             String.length name >= 9 && String.(equal (sub name 0 9) "mc_25519_") ||
+             String.length name >= 10 && String.(equal (sub name 0 10) "mc_x25519_") ||
+             String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p224_") ||
+             String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np224_") ||
+             String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p256_") ||
+             String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np256_") ||
+             String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p384_") ||
+             String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np384_") ||
+             String.length name >= 10 && String.(equal (sub name 0 10) "fiat_p521_") ||
+             String.length name >= 11 && String.(equal (sub name 0 11) "fiat_np521_") ||
+             String.length name >= 3 && String.(equal (sub name 0 3) "fe_") ||
+             String.length name >= 10 && String.(equal (sub name 0 10) "x25519_ge_") ||
+             String.length name >= 6 && String.(equal (sub name 0 6) "k25519") ||
+             String.length name >= 3 && String.(equal (sub name 0 3) "ge_") ||
+             String.(equal name "point_double"))
+    then
+      add_or_inc "Mirage_crypto_ec"
+    else if (String.length name >= 3 && String.(equal (sub name 0 3) "mc_") ||
+             String.length name >= 4 && String.(equal (sub name 0 4) "_mc_") ||
+             S.mem name mirage_crypto_syms) then
+      add_or_inc "Mirage_crypto"
+    else if (String.length name >= 9 && String.(equal (sub name 0 9) "digestif_") ||
+             String.length name >= 14 && String.(equal (sub name 0 14) "caml_digestif_")) then
+      add_or_inc "Digestif"
+    else
+      false
