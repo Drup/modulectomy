@@ -158,7 +158,7 @@ let mk_info_tbl buffer sections =
         | Ok `Data_end modname ->
           update modname (fun x -> { x with data_end = Some symbol })
         | _ ->
-          (*if not (Tables.categorize_symbol other_syms name symbol) then *)
+          if not (Tables.categorize_symbol other_syms name symbol) then
             let v = Symbol.value symbol in
             let size = Some (Symbol.size_in_bytes symbol) in
             let location =
