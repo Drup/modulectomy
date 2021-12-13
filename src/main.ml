@@ -39,7 +39,7 @@ let squarify infos =
   |> Info.prefix_filename
   |> Info.cut 2
   |> Treemap.of_tree
-  |> Treemap.doc
+  |> Treemap.to_html
   |> Format.printf "%a@." (Tyxml.Html.pp ())
 
 let guess file =
