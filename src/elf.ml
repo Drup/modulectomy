@@ -181,12 +181,12 @@ let mk_info_tbl buffer sections =
         | Some ds, Some de ->
           [ c ; Symbol.value ds, Symbol.value de ] @ acc
         | _ ->
-          Printf.printf "only data_start or data_end present for %s\n" m;
+          Printf.eprintf "only data_start or data_end present for %s\n" m;
           assert false)
       modules []
   in
   List.iter (fun (start, stop) ->
-      Printf.printf "range: %08Lx - %08Lx\n" start stop) ranges;
+      Printf.eprintf "range: %08Lx - %08Lx\n" start stop) ranges;
   let in_range addr =
     List.exists (fun (start, stop) ->
         (addr >= start && addr <= stop))
@@ -246,19 +246,19 @@ let mk_buffer path =
 
 let print_section s =
     let open Owee_elf in
-    Printf.printf "0x%08Lx - 0x%08Lx (VM 0x%08Lx - 0x%08Lx) section %s\n"
+    Printf.eprintf "0x%08Lx - 0x%08Lx (VM 0x%08Lx - 0x%08Lx) section %s\n"
       s.sh_offset (Int64.add s.sh_offset s.sh_size)
       s.sh_addr (Int64.add s.sh_addr s.sh_size)
       s.sh_name_str
 
 let get path =
   let buffer = mk_buffer path in
-  Printf.printf "bigarray size %d\n" (Bigarray.Array1.size_in_bytes buffer);
+  Printf.eprintf "bigarray size %d\n" (Bigarray.Array1.size_in_bytes buffer);
   let _header, sections = Owee_elf.read_elf buffer in
   (* let check_consistency acc_offset section =
    *   print_section section;
    *   if acc_offset <> section.sh_offset then
-   *     Printf.printf "Offsets not consistent! section.sh_offset = %Lu, acc_offset = %Lu\n"
+   *     Printf.eprintf "Offsets not consistent! section.sh_offset = %Lu, acc_offset = %Lu\n"
    *       section.sh_offset acc_offset;
    *   Int64.add section.sh_offset section.sh_size
    * in *)
@@ -270,7 +270,7 @@ let get path =
   in (* 35000 bytes more in section_size than in the binary hvt *)
   (* Array.fold_left check_consistency 0L sections |> ignore; *)
   let section_size = Array.fold_left compute_section_sizes 0L sections in
-  Printf.printf "accounted section size %Lu\n" section_size;
+  Printf.eprintf "accounted section size %Lu\n" section_size;
   match mk_info_tbl buffer sections with
   | None -> Error `Invalid_file
   | Some h -> Ok (fun k -> AddrTbl.iter (fun _ x -> k x) h)

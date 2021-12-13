@@ -17,22 +17,22 @@ let squarify infos =
   |> Info.import
   |> (fun info ->
       let size, tree = Info.diff_size_tree info in
-      Printf.printf "treemap size: %Ld \n" size;
+      Printf.eprintf "treemap size: %Ld \n" size;
       let ranges = Info.find_ranges tree in
       let compute_range_size acc (start, stop, _) =
         Int64.add acc (Int64.sub stop start)
       in
       let size = List.fold_left compute_range_size 0L ranges in
-      Printf.printf "ranges size: %Lu\n" size;
-      Printf.printf "ranges:\n";
+      Printf.eprintf "ranges size: %Lu\n" size;
+      Printf.eprintf "ranges:\n";
       let x = ref 0L in
       List.iter (fun (start, stop, v) ->
-          Printf.printf "0x%08Lx - 0x%08Lx %s\n" start stop v;
+          Printf.eprintf "0x%08Lx - 0x%08Lx %s\n" start stop v;
           if start > Int64.add !x 16L then
-            Printf.printf "  GAP before: %Ld\n"  (Int64.sub start !x);
+            Printf.eprintf "  GAP before: %Ld\n"  (Int64.sub start !x);
           x := stop)
         ranges;
-      Printf.printf "\n";
+      Printf.eprintf "\n";
       tree
     )
   (* |> Info.diff_size *)
