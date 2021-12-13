@@ -40,8 +40,7 @@ let squarify infos =
   |> Info.cut 2
   |> Treemap.of_tree
   |> Treemap.doc
-  |> ignore
-(* |> Format.printf "%a@." (Tyxml.Html.pp ()) *)
+  |> Format.printf "%a@." (Tyxml.Html.pp ())
 
 let guess file =
   match Fpath.get_ext @@ Fpath.v file with

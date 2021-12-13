@@ -174,12 +174,11 @@ and diff_size_node v T.{ value; children } =
           let value = {value with size} in
           total_size, Some T.{ value; children }
     end
-  | Value ->
-    Printf.printf "value (%s)\n" v;
-    0L, None
-  | k ->
-    Printf.printf "skipping kind %s (%s)\n" (to_string k) v;
-    0L, None
+  | _ ->
+    let children_size, children = diff_size_tree children in
+    let total_size, size = adjust_size ~total:value.size ~children_size in
+    let value = {value with size} in
+    total_size, Some T.{ value; children }
 
 let diff_size t =
   snd @@ diff_size_tree t
