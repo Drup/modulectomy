@@ -251,10 +251,18 @@ module Render = struct
 
   module Scale = struct
 
+    module Rose_tree = struct 
+
+      type 'a t = Node of 'a * 'a t list
+
+      let node v t = Node (v, t)
+
+    end
+
     let pct x = x, Some `Percent
     
     let rect ~w ~h ~x ~y =
-      Svg.[
+      Svg.(
         rect ~a:[
           a_class ["fill"];
           a_x @@ pct x;
@@ -262,26 +270,33 @@ module Render = struct
           a_width @@ pct w;
           a_height @@ pct h;
         ] []
-      ]
+      )
 
     (*goto 
       * either render blocks beside eachother, 
         * or render on top, like the tree does - 
           * ! so on mouse-over the actual range is highlighted 
+      * note for tree-rendering;
+        * scale is a rosetree of 1 level
+          * root is whole binary 
+          * children are siblings under root
     *)
-    let render_block ~pct =
-      failwith "todo"
-      (* rect ~w:pct ~h:100. ~x: *)
-    
-    let render_block_and_title (pct, label) =
-      Svg.g [
-        Svg.(title (txt label));
-        (* render_block pct *)
-      ]
-    
-    let scale_of_blocks blocks =
-      blocks |> List.map render_block_and_title
-    
+
+    let render_scale_tree tree =
+      let rec aux (acc_children, acc_pct) = function
+        | Rose_tree.Node ((pct, title), children) ->
+          let children_svgs, _ =
+            children |> List.fold_left aux ([], acc_pct) in
+          let svg = Svg.g [
+            Svg.title @@ Svg.txt title;
+            rect ~w:pct ~h:100. ~x:acc_pct ~y:0.; (*goto test*)
+            Svg.g children_svgs
+          ]
+          in
+          svg :: acc_children, pct +. acc_pct
+      in
+      aux ([], 0.) tree |> fst
+
     let make ~treemap_size ~binary_size =
       let binary_size = float binary_size in
       assert (binary_size >= treemap_size);
@@ -290,11 +305,12 @@ module Render = struct
       let size_string tag size =
         Format.asprintf "%s: %a" tag pp_size size
       in
-      let blocks = [
-        treemap_pct, size_string "Treemap" treemap_size;
-        rest_pct, size_string "Binary" binary_size;
-      ] in
-      let scale_svg = scale_of_blocks blocks in
+      let scale_tree = Rose_tree.(
+        node (100., size_string "Binary" binary_size) [
+          node (treemap_pct, size_string "Treemap" treemap_size) []
+        ])
+      in
+      let scale_svg = render_scale_tree scale_tree in
       let a = [ Svg.a_viewBox (0., 0., 100., 100.) ] in
       a, scale_svg
 
