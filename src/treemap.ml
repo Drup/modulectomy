@@ -124,6 +124,9 @@ module Render = struct
 svg {
   padding-top: 8px;
 }
+.scale-header {
+  fill:white;
+}
 .scale-fill:hover {
   filter: brightness(1.3);
 }
@@ -297,25 +300,37 @@ svg {
     *)
 
     let sp = Printf.sprintf
-    
+
+    let render_label label = Svg.(
+      text ~a:[
+        a_class ["scale-header"];
+        a_dominant_baseline `Hanging;
+        a_text_anchor `Start;
+        a_font_size @@ "0.115em";
+        a_x_list [ pct 1. ];
+        a_y_list [ pct 25. ];
+      ] [txt @@ label] ;
+    )
+
     let render_scale_tree tree =
       let rec aux (acc_children, acc_pct) = function
         | Rose_tree.Node ((pct, title), children) ->
           let children_svgs, _ =
             children |> List.fold_left aux ([], acc_pct) in
           let c max_v =
-            (0.25 +. 0.75 *. (1. -. pct /. 100.))
+            (0.4 +. 1.0 *. (1. -. pct /. 100.))
             *. max_v
             |> truncate in
           let svg = Svg.g ~a:[
             Svg.a_class ["scale-node"];
             Svg.a_style @@ sp "fill: rgb(%d,%d,%d)"
-              (c 200.) (c 200.) (c 255.); (*goo*)
+              (c 109.) (c 109.) (c 255.); 
           ][
             Svg.title @@ Svg.txt title;
             rect ~w:pct ~h:100. ~x:acc_pct ~y:0.;
             (*< goto return aspect ratio (or something else) 
               to be able to make correctly sized iframe*)
+            (* render_label @@ sp "%.0f%%" pct; *)
             Svg.g children_svgs
           ]
           in
