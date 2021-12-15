@@ -21,11 +21,9 @@ let rec area = function
 and areal a = Iter.sumf @@ Iter.map area a
 
 let rec to_tree_layout path (Info.T.T t) =
-  Info.SMap.to_seq t
-  |> Seq.map (node_to_tree_layout path)
-  |> List.of_seq
-  |> List.sort (fun t1 t2 -> - (Float.compare (area t1) (area t2)))
-  |> Iter.of_list
+  Info.SMap.to_iter t
+  |> Iter.map (node_to_tree_layout path)
+  |> Iter.sort ~cmp:(fun t1 t2 -> - (Float.compare (area t1) (area t2)))
 
 and node_to_tree_layout path (label, {value; children}) =
   let new_path = path @ [label] in
