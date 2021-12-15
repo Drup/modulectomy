@@ -100,7 +100,7 @@ module Render = struct
   fill:#6AFF8F;
 }
 .border {
-  stroke:black;
+  stroke:gray;
   fill:none;
 }
 .label,.header {
@@ -118,6 +118,17 @@ module Render = struct
 }
 .functor > text, .module > text {
   fill:white;
+}
+
+
+svg {
+  padding-top: 8px;
+}
+.scale-fill:hover {
+  filter: brightness(1.3);
+}
+.scale-node:hover > .scale-fill ~ * .scale-fill {
+  filter: brightness(1.3);
 }
 |}
 
@@ -151,7 +162,8 @@ module Render = struct
       Svg.(title (txt s))
 
     let mk_border ~level { p ; w ; h } =
-      let stroke = exp (-. 1.5 *. float level) in
+      (* let stroke = exp (-. 1.5 *. float level) in *)
+      let stroke = 20. in
       Svg.[
         rect ~a:[
           a_class ["border"] ;
@@ -264,7 +276,7 @@ module Render = struct
     let rect ~w ~h ~x ~y =
       Svg.(
         rect ~a:[
-          a_class ["fill"];
+          a_class ["scale-fill"]; 
           a_x @@ pct x;
           a_y @@ pct y;
           a_width @@ pct w;
@@ -272,7 +284,7 @@ module Render = struct
         ] []
       )
 
-    (*goto 
+    (*goto howto
       * either render blocks beside eachother, 
         * or render on top, like the tree does - 
           * ! so on mouse-over the actual range is highlighted 
@@ -280,16 +292,30 @@ module Render = struct
         * scale is a rosetree of 1 level
           * root is whole binary 
           * children are siblings under root
+      * ui
+        * add pct text to each leaf-block?
     *)
 
+    let sp = Printf.sprintf
+    
     let render_scale_tree tree =
       let rec aux (acc_children, acc_pct) = function
         | Rose_tree.Node ((pct, title), children) ->
           let children_svgs, _ =
             children |> List.fold_left aux ([], acc_pct) in
-          let svg = Svg.g [
+          let c max_v =
+            (0.25 +. 0.75 *. (1. -. pct /. 100.))
+            *. max_v
+            |> truncate in
+          let svg = Svg.g ~a:[
+            Svg.a_class ["scale-node"];
+            Svg.a_style @@ sp "fill: rgb(%d,%d,%d)"
+              (c 200.) (c 200.) (c 255.); (*goo*)
+          ][
             Svg.title @@ Svg.txt title;
-            rect ~w:pct ~h:100. ~x:acc_pct ~y:0.; (*goto test*)
+            rect ~w:pct ~h:100. ~x:acc_pct ~y:0.;
+            (*< goto return aspect ratio (or something else) 
+              to be able to make correctly sized iframe*)
             Svg.g children_svgs
           ]
           in
@@ -310,7 +336,7 @@ module Render = struct
         ])
       in
       let scale_svg = render_scale_tree scale_tree in
-      let a = [ Svg.a_viewBox (0., 0., 100., 100.) ] in
+      let a = [ Svg.a_viewBox (0., 0., 100., 3.) ] in
       a, scale_svg
 
   end
