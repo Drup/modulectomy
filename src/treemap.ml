@@ -301,7 +301,6 @@ module Render = struct
       let binary_size = float binary_size in
       assert (binary_size >= treemap_size);
       let treemap_pct = 100. *. treemap_size /. binary_size in
-      let rest_pct = 100. -. treemap_pct in
       let size_string tag size =
         Format.asprintf "%s: %a" tag pp_size size
       in
