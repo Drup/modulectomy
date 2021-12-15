@@ -274,3 +274,8 @@ and cut_node n T.{ value; children } =
     T.{ value; children = T.T SMap.empty }
 
 let cut n t = cut_tree n t
+
+let partition_subtrees : (T.node -> bool) -> T.t -> T.t * T.t list
+  = fun predicate tree ->
+    (* failwith "todo" *)
+    tree, []
