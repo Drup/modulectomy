@@ -128,7 +128,7 @@ svg {
 .scale-fill:hover {
   filter: brightness(1.3);
 }
-.scale-node:hover > .scale-fill ~ * .scale-fill {
+.scale-node > .scale-fill:hover ~ * .scale-fill {
   filter: brightness(1.3);
 }
 |}
