@@ -336,17 +336,25 @@ svg {
       in
       aux ([], 0.) tree |> fst
 
-    let make ~treemap_size ~binary_size =
+    let make ~treemap_size ~binary_size ~subtrees:input_subtrees =
       let binary_size = float binary_size in
       assert (binary_size >= treemap_size);
       let treemap_pct = 100. *. treemap_size /. binary_size in
       let size_string tag size =
         Format.asprintf "%s: %a" tag pp_size size
       in
+      let input_subtrees =
+        input_subtrees |> List.map (fun (tag, size) ->
+          let size = Int64.to_float size in
+          let pct = 100. *. size /. binary_size in
+          Rose_tree.node (pct, size_string tag size) []
+        )
+      in
       let scale_tree = Rose_tree.(
-        node (100., size_string "Binary" binary_size) [
+        node (100., size_string "Binary" binary_size) (
           node (treemap_pct, size_string "Treemap" treemap_size) []
-        ])
+          :: input_subtrees
+        ))
       in
       let scale_svg = render_scale_tree scale_tree in
       let a = [ Svg.a_viewBox (0., 0., 100., 3.) ] in
@@ -358,10 +366,11 @@ svg {
     let a, t = Treemap.make rect trees in
     Svg.svg ~a t
 
-  let html_with_scale ~binary_size { rect; trees } =
+  let html_with_scale ~binary_size ~scale_chunks { rect; trees } =
     let a_tree, treemap = Treemap.make rect trees in
     let treemap_size = rect.w *. rect.h in
-    let a_scale, scale = Scale.make ~treemap_size ~binary_size in
+    let a_scale, scale =
+      Scale.make ~treemap_size ~binary_size ~subtrees:scale_chunks in
     H.html
       (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data Treemap.css]])
       (H.body [
