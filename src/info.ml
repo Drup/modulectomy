@@ -275,7 +275,25 @@ and cut_node n T.{ value; children } =
 
 let cut n t = cut_tree n t
 
-let partition_subtrees : (T.node -> bool) -> T.t -> T.t * T.t list
-  = fun predicate tree ->
-    (* failwith "todo" *)
-    tree, []
+type 'a partition_acc = 'a SMap.t * T.t list
+
+let rec partition_subtrees : (T.node -> bool) -> T.t -> T.t * T.t list
+  = fun predicate (T.T tree) ->
+    let init = SMap.empty, [] in
+    let tree, excluded = SMap.fold (partition_node predicate) tree init in
+    T.T tree, excluded
+
+and partition_node
+  : (T. node -> bool) -> name -> T.node -> _ partition_acc -> _ partition_acc
+  = fun predicate name node (acc_tree, acc_excluded) ->
+    if predicate node then
+      let children, excluded = partition_subtrees predicate node.children in
+      let value = node.value in
+      let node = T.{ value; children } in
+      let acc_tree = SMap.add name node acc_tree in
+      let acc_excluded = excluded @ acc_excluded in
+      acc_tree, acc_excluded
+    else
+      let acc_excluded = T.T (SMap.singleton name node) :: acc_excluded in
+      acc_tree, acc_excluded
+
