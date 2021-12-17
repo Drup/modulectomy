@@ -126,10 +126,10 @@ svg {
   fill:white;
 }
 .scale-fill:hover {
-  filter: brightness(1.3);
+  filter: grayscale(0%) !important;
 }
 .scale-node > .scale-fill:hover ~ * .scale-fill {
-  filter: brightness(1.3);
+  filter: grayscale(0%) !important;
 }
 |}
 
@@ -274,10 +274,14 @@ svg {
 
     let pct x = x, Some `Percent
     
-    let rect ~w ~h ~x ~y =
+    let sp = Printf.sprintf
+
+    let rect ~color:(r, g, b) ~w ~h ~x ~y =
+      let style_str = sp "fill: rgb(%d,%d,%d); filter: grayscale(100%%);" r g b in
       Svg.(
         rect ~a:[
           a_class ["scale-fill"]; 
+          a_style style_str;
           a_x @@ pct x;
           a_y @@ pct y;
           a_width @@ pct w;
@@ -296,8 +300,6 @@ svg {
       * ui
         * add pct text to each leaf-block?
     *)
-
-    let sp = Printf.sprintf
 
     let render_label label = Svg.(
       text ~a:[
@@ -319,13 +321,12 @@ svg {
             (0.4 +. 1.0 *. (1. -. pct /. 100.))
             *. max_v
             |> truncate in
+          let color = c 109., c 109., c 255. in
           let svg = Svg.g ~a:[
             Svg.a_class ["scale-node"];
-            Svg.a_style @@ sp "fill: rgb(%d,%d,%d)"
-              (c 109.) (c 109.) (c 255.); 
           ][
             Svg.title @@ Svg.txt title;
-            rect ~w:pct ~h:100. ~x:acc_pct ~y:0.;
+            rect ~color ~w:pct ~h:100. ~x:acc_pct ~y:0.;
             (*< goto return aspect ratio (or something else) 
               to be able to make correctly sized iframe*)
             (* render_label @@ sp "%.0f%%" pct; *)
