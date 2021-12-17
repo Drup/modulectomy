@@ -131,6 +131,10 @@ svg {
 .scale-node > .scale-fill:hover ~ * .scale-fill {
   filter: grayscale(0%) !important;
 }
+.scale-line {
+  stroke: rgb(0,0,0);
+  stroke-width: 0.3;
+}
 |}
 
     let area_of_pos {w ; h ; _ } = h *. w
@@ -326,7 +330,7 @@ svg {
             Svg.a_class ["scale-node"];
           ][
             Svg.title @@ Svg.txt title;
-            rect ~color ~w:pct ~h:100. ~x:acc_pct ~y:0.;
+            rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
             (*< goto return aspect ratio (or something else) 
               to be able to make correctly sized iframe*)
             (* render_label @@ sp "%.0f%%" pct; *)
@@ -337,6 +341,40 @@ svg {
       in
       aux ([], 0.) tree |> fst
 
+    let line ~x0 ~y0 ~x1 ~y1 =
+      Svg.(line ~a:[
+        a_class [ "scale-line" ];
+        a_x1 @@ pct x0;
+        a_y1 @@ pct y0;
+        a_x2 @@ pct x1;
+        a_y2 @@ pct y1;
+      ]) []
+
+    (*goto turn around vertically + add a little stump in middle on the other side*)
+    let render_scale_pointer treemap_pct =
+      let stump_len = 14. in
+      let line_width = 0.28 in
+      let padding_horiz = 0.5 in
+      let padding_vert = 7.0 in
+      let scale_line =
+        let stump_y = 50. +. padding_vert in
+        let line_y = stump_y +. stump_len +. line_width /. 2. in
+        let line_x0 = 0. +. padding_horiz in
+        let stump_x = line_x0 +. line_width /. 2. in
+        let line_x1 = treemap_pct -. padding_horiz in
+        let stump2_x = line_x1 -. line_width /. 2. in
+        let stumps = Svg.g [
+          line ~x0:stump_x ~y0:stump_y ~x1:stump_x ~y1:line_y;
+          line ~x0:stump2_x ~y0:stump_y ~x1:stump2_x ~y1:line_y; 
+        ]
+        in
+        Svg.g [
+          stumps;
+          line ~x0:line_x0 ~y0:line_y ~x1:line_x1 ~y1:line_y
+        ]
+      in
+      scale_line
+    
     let make ~treemap_size ~binary_size ~subtrees:input_subtrees =
       let binary_size = float binary_size in
       assert (binary_size >= treemap_size);
@@ -358,8 +396,10 @@ svg {
         ))
       in
       let scale_svg = render_scale_tree scale_tree in
-      let a = [ Svg.a_viewBox (0., 0., 100., 3.) ] in
-      a, scale_svg
+      let pointer_svg = render_scale_pointer treemap_pct in
+      let svg = pointer_svg :: scale_svg in
+      let a = [ Svg.a_viewBox (0., 0., 100., 6.) ] in
+      a, svg
 
   end
 
