@@ -1,3 +1,4 @@
+let sp = Printf.sprintf
 
 module T = Tree_layout
 
@@ -70,12 +71,9 @@ module Render = struct
     in              
     Format.fprintf ppf fmt f
 
-  
-  module Treemap = struct
+  let stroke_width = 0.6
 
-    open Tree_layout.Common
-
-    let css = {|
+  let css = sp {|
 .unlocated {
   filter:blur(0.1);
 }
@@ -119,23 +117,33 @@ module Render = struct
 }
 
 
-svg {
-  padding-top: 8px;
-}
 .scale-header {
   fill:white;
 }
 .scale-fill:hover {
-  filter: grayscale(0%) !important;
+  filter: grayscale(0%%) !important;
+}
+.scale-fill:hover ~ g {
+  filter: grayscale(0%%) !important;
 }
 .scale-node > .scale-fill:hover ~ * .scale-fill {
-  filter: grayscale(0%) !important;
+  filter: grayscale(0%%) !important;
 }
 .scale-line {
-  stroke: rgb(0,0,0);
-  stroke-width: 0.3;
+  stroke-width: %f;
 }
-|}
+svg {
+  stroke-width: 0;
+}
+|} stroke_width
+(* stroke: rgb(0,0,0); *)
+(* svg {
+ *   padding-top: 8px;
+ * } *)
+  
+  module Treemap = struct
+
+    open Tree_layout.Common
 
     let area_of_pos {w ; h ; _ } = h *. w
 
@@ -277,11 +285,13 @@ svg {
     end
 
     let pct x = x, Some `Percent
-    
-    let sp = Printf.sprintf
 
-    let rect ~color:(r, g, b) ~w ~h ~x ~y =
-      let style_str = sp "fill: rgb(%d,%d,%d); filter: grayscale(100%%);" r g b in
+    let style_of_color (r, g, b) =
+      let color_str = sp "rgb(%d,%d,%d)" r g b in
+      sp "stroke: %s; fill: %s; filter: grayscale(100%%);" color_str color_str 
+    
+    let rect ~color ~w ~h ~x ~y =
+      let style_str = style_of_color color in
       Svg.(
         rect ~a:[
           a_class ["scale-fill"]; 
@@ -316,31 +326,6 @@ svg {
       ] [txt @@ label] ;
     )
 
-    let render_scale_tree tree =
-      let rec aux (acc_children, acc_pct) = function
-        | Rose_tree.Node ((pct, title), children) ->
-          let children_svgs, _ =
-            children |> List.fold_left aux ([], acc_pct) in
-          let c max_v =
-            (0.4 +. 1.0 *. (1. -. pct /. 100.))
-            *. max_v
-            |> truncate in
-          let color = c 109., c 109., c 255. in
-          let svg = Svg.g ~a:[
-            Svg.a_class ["scale-node"];
-          ][
-            Svg.title @@ Svg.txt title;
-            rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
-            (*< goto return aspect ratio (or something else) 
-              to be able to make correctly sized iframe*)
-            (* render_label @@ sp "%.0f%%" pct; *)
-            Svg.g children_svgs
-          ]
-          in
-          svg :: acc_children, pct +. acc_pct
-      in
-      aux ([], 0.) tree |> fst
-
     let line ~x0 ~y0 ~x1 ~y1 =
       Svg.(line ~a:[
         a_class [ "scale-line" ];
@@ -350,31 +335,70 @@ svg {
         a_y2 @@ pct y1;
       ]) []
 
-    (*goto turn around vertically + add a little stump in middle on the other side*)
-    let render_scale_pointer treemap_pct =
-      let stump_len = 14. in
-      let line_width = 0.28 in
+    let render_scale_pointer ~color ~pct =
+      let stump_len = 17. in
+      let line_width = stroke_width in
       let padding_horiz = 0.5 in
       let padding_vert = 7.0 in
       let scale_line =
-        let stump_y = 50. +. padding_vert in
-        let line_y = stump_y +. stump_len +. line_width /. 2. in
-        let line_x0 = 0. +. padding_horiz in
-        let stump_x = line_x0 +. line_width /. 2. in
-        let line_x1 = treemap_pct -. padding_horiz in
-        let stump2_x = line_x1 -. line_width /. 2. in
+        let lr_stump_y = 100. in
+        (* let line_y = lr_stump_y -. stump_len -. line_width /. 2. in  *)
+        let line_y = 75. +. padding_vert /. 2. in 
+        let line_x0 = 0. (* +. padding_horiz *) in
+        let l_stump_x = line_x0 +. line_width /. 2. -. 0.00 in
+        (* let line_x1 = treemap_pct -. padding_horiz in *)
+        let line_x1 = 100. (* -. padding_horiz *) in
+        let r_stump_x = line_x1 -. line_width /. 2. +. 0.00  in
+        let m_stump_x = pct /. 2. in
+        let m_stump_y = 50. (* +. padding_vert *) in
         let stumps = Svg.g [
-          line ~x0:stump_x ~y0:stump_y ~x1:stump_x ~y1:line_y;
-          line ~x0:stump2_x ~y0:stump_y ~x1:stump2_x ~y1:line_y; 
+          line ~x0:m_stump_x ~y0:m_stump_y ~x1:m_stump_x ~y1:line_y;
+          line ~x0:l_stump_x ~y0:lr_stump_y ~x1:l_stump_x ~y1:line_y;
+          line ~x0:r_stump_x ~y0:lr_stump_y ~x1:r_stump_x ~y1:line_y; 
         ]
         in
-        Svg.g [
+        let a = [ Svg.a_style (style_of_color color) ] in
+        Svg.g ~a [
           stumps;
           line ~x0:line_x0 ~y0:line_y ~x1:line_x1 ~y1:line_y
         ]
       in
       scale_line
-    
+
+    let render_scale_tree tree =
+      let rec aux (acc_children, acc_pct) = function
+        | Rose_tree.Node ((pct, title, scale_pointer), children) ->
+          let children_svgs, _ =
+            children |> List.fold_left aux ([], acc_pct) in
+          let c max_v =
+            (0.4 +. 1.0 *. (1. -. pct /. 100.))
+            *. max_v
+            |> truncate in
+          let color = c 109., c 109., c 255. in
+          let svg_content = match scale_pointer with
+            | true -> [
+                Svg.title @@ Svg.txt title;
+                rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
+                render_scale_pointer ~color ~pct;
+                Svg.g children_svgs
+              ]
+            | false -> [
+                Svg.title @@ Svg.txt title;
+                rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
+                Svg.g children_svgs
+              ]
+            (*< goto return aspect ratio (or something else) 
+              to be able to make correctly sized iframe*)
+            (* render_label @@ sp "%.0f%%" pct; *)
+          in
+          let svg = Svg.g ~a:[
+            Svg.a_class ["scale-node"];
+          ] svg_content
+          in
+          svg :: acc_children, pct +. acc_pct
+      in
+      aux ([], 0.) tree |> fst
+
     let make ~treemap_size ~binary_size ~subtrees:input_subtrees =
       let binary_size = float binary_size in
       assert (binary_size >= treemap_size);
@@ -386,20 +410,18 @@ svg {
         input_subtrees |> List.map (fun (tag, size) ->
           let size = Int64.to_float size in
           let pct = 100. *. size /. binary_size in
-          Rose_tree.node (pct, size_string tag size) []
+          Rose_tree.node (pct, size_string tag size, false) []
         )
       in
       let scale_tree = Rose_tree.(
-        node (100., size_string "Binary" binary_size) (
-          node (treemap_pct, size_string "Treemap" treemap_size) []
+        node (100., size_string "Binary" binary_size, false) (
+          node (treemap_pct, size_string "Treemap" treemap_size, true) []
           :: input_subtrees
         ))
       in
       let scale_svg = render_scale_tree scale_tree in
-      let pointer_svg = render_scale_pointer treemap_pct in
-      let svg = pointer_svg :: scale_svg in
       let a = [ Svg.a_viewBox (0., 0., 100., 6.) ] in
-      a, svg
+      a, scale_svg
 
   end
 
@@ -413,7 +435,7 @@ svg {
     let a_scale, scale =
       Scale.make ~treemap_size ~binary_size ~subtrees:scale_chunks in
     H.html
-      (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data Treemap.css]])
+      (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data css]])
       (H.body [
           H.svg ~a:a_scale scale;
           H.svg ~a:a_tree treemap;
@@ -422,13 +444,11 @@ svg {
   let html { rect; trees } =
     let a_tree, treemap = Treemap.make rect trees in
     H.html
-      (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data Treemap.css]])
+      (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data css]])
       (H.body [
           H.svg ~a:a_tree treemap;
         ])
 
-  let css = Treemap.css
-  
 end
 
 let to_svg = Render.svg
