@@ -6,7 +6,7 @@
    owee
    modulectomy.tree_layout tyxml
    iter containers containers-data fpath
-   tyre
+   tyre fmt 
  )
  (flags (:standard (-w -27-26)))
  )

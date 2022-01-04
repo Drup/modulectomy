@@ -63,14 +63,6 @@ let of_tree l =
 module Render = struct
   open Tyxml
 
-  let pp_size ppf f =
-    let (fmt : _ format), f =
-      if f < 1024. then "%.0fB", f
-      else if f < 1024.*.1024. then "%.2fkB", f/.1024.
-      else "%.2fMB", f/.1024./.1024.
-    in              
-    Format.fprintf ppf fmt f
-
   let stroke_width = 0.6
 
   let css = sp {|
@@ -155,6 +147,7 @@ svg {
       Info.to_string info.data.kind :: l
 
     let title_of_info info area =
+      let area = truncate area in
       (* let pp_file ppf = function
        *   | None -> ()
        *   | Some (f,_,_) ->
@@ -168,7 +161,7 @@ svg {
         Format.asprintf
           "name: %a@.size: %a@.type: %s"
           pp_path (info.path @ [info.label])
-          pp_size area
+          Fmt.byte_size area
           (Info.to_string info.data.kind)
           (* pp_file info.data.location *)
       in
@@ -404,7 +397,9 @@ svg {
       assert (binary_size >= treemap_size);
       let treemap_pct = 100. *. treemap_size /. binary_size in
       let size_string tag size =
-        Format.asprintf "%s: %a" tag pp_size size
+        (*TODO: use integers for sizes throughout*)
+        let size = truncate size in 
+        Format.asprintf "%s: %a" tag Fmt.byte_size size
       in
       let input_subtrees =
         input_subtrees |> List.map (fun (tag, size) ->
