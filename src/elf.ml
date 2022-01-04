@@ -141,33 +141,43 @@ let mk_info_tbl buffer sections =
     in
     Hashtbl.replace modules modname v
   in
+  let symbols = ref [] in
+  let visited s =
+    List.exists
+      (fun s2 -> Symbol.value s2 = Symbol.value s && Symbol.name s2 tbl = Symbol.name s tbl)
+      !symbols
+  in
   let f symbol =
-    match Symbol.type_attribute symbol with
-    | Symbol.File -> ()
-    | _ ->
-      match Symbol.name symbol tbl with
-      | Some name when filtered_sym name -> ()
-      | name ->
-        match marker name with
-        | Ok `Code_begin modname ->
-          update modname (fun x -> { x with code_start = Some symbol })
-        | Ok `Code_end modname ->
-          update modname (fun x -> { x with code_end = Some symbol })
-        | Ok `Data_begin modname ->
-          update modname (fun x -> { x with data_start = Some symbol })
-        | Ok `Data_end modname ->
-          update modname (fun x -> { x with data_end = Some symbol })
+    if not (visited symbol) then
+      begin
+        symbols := symbol :: !symbols;
+        match Symbol.type_attribute symbol with
+        | Symbol.File -> ()
         | _ ->
-          if not (Tables.categorize_symbol other_syms name symbol) then
-            let v = Symbol.value symbol in
-            let size = Some (Symbol.size_in_bytes symbol) in
-            let location =
-              AddrMap.find_opt v loctbl
-            in
-            match classify_symb ~tbl symbol with
-            | None -> ()
-            | Some (name, _id, kind) ->
-              AddrTbl.add h v (name, Info.mk ~v ?size ?location kind)
+          match Symbol.name symbol tbl with
+          | Some name when filtered_sym name -> ()
+          | name ->
+            match marker name with
+            | Ok `Code_begin modname ->
+              update modname (fun x -> { x with code_start = Some symbol })
+            | Ok `Code_end modname ->
+              update modname (fun x -> { x with code_end = Some symbol })
+            | Ok `Data_begin modname ->
+              update modname (fun x -> { x with data_start = Some symbol })
+            | Ok `Data_end modname ->
+              update modname (fun x -> { x with data_end = Some symbol })
+            | _ ->
+              if not (Tables.categorize_symbol other_syms name symbol) then
+                let v = Symbol.value symbol in
+                let size = Some (Symbol.size_in_bytes symbol) in
+                let location =
+                  AddrMap.find_opt v loctbl
+                in
+                match classify_symb ~tbl symbol with
+                | None -> ()
+                | Some (name, _id, kind) ->
+                  AddrTbl.add h v (name, Info.mk ~v ?size ?location kind)
+      end
   in
   Symbol_table.iter symtbl ~f ;
   (* remove symbols with addresses between start..end *)
