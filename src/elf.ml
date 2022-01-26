@@ -141,16 +141,26 @@ let mk_info_tbl buffer sections =
     in
     Hashtbl.replace modules modname v
   in
-  let symbols = ref [] in
-  let visited s =
-    List.exists
-      (fun s2 -> Symbol.value s2 = Symbol.value s && Symbol.name s2 tbl = Symbol.name s tbl)
-      !symbols
+  let module SymRepr = struct
+    type t = {
+      value : int64;
+      name : string option;
+    }
+    let of_symbol ~tbl s = {
+      value = Symbol.value s;
+      name = Symbol.name s tbl;
+    }
+    let compare = compare
+  end in
+  let module SymSet = Set.Make(SymRepr)
+  in
+  let symbols = ref SymSet.empty in
+  let visited s = SymSet.mem (SymRepr.of_symbol ~tbl s) !symbols
   in
   let f symbol =
     if not (visited symbol) then
       begin
-        symbols := symbol :: !symbols;
+        symbols := SymSet.add (SymRepr.of_symbol ~tbl symbol) !symbols;
         match Symbol.type_attribute symbol with
         | Symbol.File -> ()
         | _ ->
