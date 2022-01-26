@@ -424,22 +424,33 @@ svg {
     let a, t = Treemap.make rect trees in
     Svg.svg ~a t
 
-  let html_with_scale ~binary_size ~scale_chunks { rect; trees } =
+  let merge_css = String.concat "\n"
+  
+  let html_with_scale
+      ~binary_size
+      ~scale_chunks
+      ?(override_css="")
+      { rect; trees }
+    =
     let a_tree, treemap = Treemap.make rect trees in
     let treemap_size = rect.w *. rect.h in
     let a_scale, scale =
       Scale.make ~treemap_size ~binary_size ~subtrees:scale_chunks in
     H.html
-      (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data css]])
+      (H.head (H.title (H.txt "Treemap")) [
+          H.style [H.Unsafe.data @@ merge_css [ css; override_css ]]
+        ])
       (H.body [
           H.svg ~a:a_scale scale;
           H.svg ~a:a_tree treemap;
         ])
 
-  let html { rect; trees } =
+  let html ?(override_css="") { rect; trees } =
     let a_tree, treemap = Treemap.make rect trees in
     H.html
-      (H.head (H.title (H.txt "Treemap")) [H.style [H.Unsafe.data css]])
+      (H.head (H.title (H.txt "Treemap")) [
+          H.style [H.Unsafe.data @@ merge_css [ css; override_css ]]
+        ])
       (H.body [
           H.svg ~a:a_tree treemap;
         ])
