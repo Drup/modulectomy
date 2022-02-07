@@ -8,6 +8,7 @@ type node = {
   size : float ;
   data : Info.data
 }
+
 type t = {
   rect : T.Common.rectangle ;
   trees : (node * T.Common.rectangle) T.tree Iter.t ;
@@ -128,10 +129,6 @@ svg {
   stroke-width: 0;
 }
 |} stroke_width
-(* stroke: rgb(0,0,0); *)
-(* svg {
- *   padding-top: 8px;
- * } *)
   
   module Treemap = struct
 
@@ -167,7 +164,7 @@ svg {
       in
       Svg.(title (txt s))
 
-    let mk_border ~level { p ; w ; h } =
+    let make_border ~level { p ; w ; h } =
       (* let stroke = exp (-. 1.5 *. float level) in *)
       let stroke = 20. in
       Svg.[
@@ -178,7 +175,8 @@ svg {
           a_stroke_width (stroke, None) ;
         ] []
       ]
-    let mk_rect { p ; w ; h } =
+
+    let make_rect { p ; w ; h } =
       Svg.[
         rect ~a:[
           a_class ["fill"];
@@ -192,6 +190,7 @@ svg {
       a_y_list [p.y +. h/.2., None] ;
       a_text_anchor `Middle;
     ]
+
     let a_left_position p = Svg.[
       a_x_list [p.x, None] ;
       a_dx_list [1.,Some `Px] ;
@@ -215,7 +214,7 @@ svg {
       let title = title_of_info info @@ area_of_pos pos in
       Svg.g
         ~a:[Svg.a_class ("leaf" :: class_from_info info)]
-        (title :: mk_rect pos @ label @ mk_border ~level pos)
+        (title :: make_rect pos @ label @ make_border ~level pos)
 
     let header_node ~info pos =
       let header_pos = {pos with h = pos.h/.13.} in
@@ -228,14 +227,14 @@ svg {
         ) [txt @@ info.label] ;
         ]
       in
-      mk_rect pos @ label
+      make_rect pos @ label
 
     let node ~info ~level pos children =
       let title = title_of_info info @@ area_of_pos pos in
       let header = header_node ~info pos in
       Svg.g
         ~a:[Svg.a_class ("node" :: class_from_info info)]
-        (title :: header @ children @ mk_border ~level pos)
+        (title :: header @ children @ make_border ~level pos)
 
     let list_map_array f a = List.map f @@ Array.to_list a
     let list_flatmap_array f a =
@@ -308,7 +307,7 @@ svg {
         * add pct text to each leaf-block?
     *)
 
-    let render_label label = Svg.(
+    let make_label label = Svg.(
       text ~a:[
         a_class ["scale-header"];
         a_dominant_baseline `Hanging;
@@ -328,7 +327,7 @@ svg {
         a_y2 @@ pct y1;
       ]) []
 
-    let render_scale_pointer ~color ~pct =
+    let make_scale_pointer ~color ~pct =
       let stump_len = 17. in
       let line_width = stroke_width in
       let padding_horiz = 0.5 in
@@ -358,7 +357,7 @@ svg {
       in
       scale_line
 
-    let render_scale_tree tree =
+    let make_scale_tree tree =
       let rec aux (acc_children, acc_pct) = function
         | Rose_tree.Node ((pct, title, scale_pointer), children) ->
           let children_svgs, _ =
@@ -372,7 +371,7 @@ svg {
             | true -> [
                 Svg.title @@ Svg.txt title;
                 rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
-                render_scale_pointer ~color ~pct;
+                make_scale_pointer ~color ~pct;
                 Svg.g children_svgs
               ]
             | false -> [
@@ -382,7 +381,7 @@ svg {
               ]
             (*< goto return aspect ratio (or something else) 
               to be able to make correctly sized iframe*)
-            (* render_label @@ sp "%.0f%%" pct; *)
+            (* make_label @@ sp "%.0f%%" pct; *)
           in
           let svg = Svg.g ~a:[
             Svg.a_class ["scale-node"];
@@ -414,7 +413,7 @@ svg {
           :: input_subtrees
         ))
       in
-      let scale_svg = render_scale_tree scale_tree in
+      let scale_svg = make_scale_tree scale_tree in
       let a = [ Svg.a_viewBox (0., 0., 100., 6.) ] in
       a, scale_svg
 
@@ -457,8 +456,24 @@ svg {
 
 end
 
-let to_svg = Render.svg
+let to_svg tree = Render.svg tree, Render.css
+(** [Treemap.to_svg tree] returns a tuple of the treemap-SVG and the CSS. 
+    The SVG won't render correctly without the CSS. 
+
+    The scale-SVG is not included. Use [Render.Scale.make] for this. *)
+                                     
 let to_html = Render.html
+(** [Treemap.to_html ?override_css tree] returns HTML ready to render the
+    interactive treemap-SVG *)
+
 let to_html_with_scale = Render.html_with_scale
+(** [Treemap.to_html_with_scale ?override_css ~binary_size ~scale_chunks tree] 
+    returns HTML ready to render the interactive treemap-SVG. It also 
+    includes a scale-SVG that shows the size of data rendered by the 
+    treemap relative to the binary size and other 'chunks' of data. 
+
+    The [scale_chunks] is a list of names and sizes of chunks of the binary 
+    that are not included in the treemap. These sizes are subsets of the 
+    total binary size. *)
 
 
