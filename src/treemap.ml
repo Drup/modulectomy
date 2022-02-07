@@ -164,7 +164,7 @@ svg {
       in
       Svg.(title (txt s))
 
-    let make_border ~level { p ; w ; h } =
+    let make_border { p ; w ; h } =
       (* let stroke = exp (-. 1.5 *. float level) in *)
       let stroke = 20. in
       Svg.[
@@ -198,7 +198,7 @@ svg {
       a_text_anchor `Start;
     ]
 
-    let leaf ~info ~level pos =
+    let leaf ~info pos =
       (* let angle = -.180.*.tanh (pos.h/.pos.w)/.Float.pi in
        * let center = pos.p.x+.pos.w/.2. , pos.p.y+.pos.h/.2. in *)
       let label = 
@@ -214,7 +214,7 @@ svg {
       let title = title_of_info info @@ area_of_pos pos in
       Svg.g
         ~a:[Svg.a_class ("leaf" :: class_from_info info)]
-        (title :: make_rect pos @ label @ make_border ~level pos)
+        (title :: make_rect pos @ label @ make_border pos)
 
     let header_node ~info pos =
       let header_pos = {pos with h = pos.h/.13.} in
@@ -229,12 +229,12 @@ svg {
       in
       make_rect pos @ label
 
-    let node ~info ~level pos children =
+    let node ~info pos children =
       let title = title_of_info info @@ area_of_pos pos in
       let header = header_node ~info pos in
       Svg.g
         ~a:[Svg.a_class ("node" :: class_from_info info)]
-        (title :: header @ children @ make_border ~level pos)
+        (title :: header @ children @ make_border pos)
 
     let list_map_array f a = List.map f @@ Array.to_list a
     let list_flatmap_array f a =
@@ -244,10 +244,10 @@ svg {
 
     let rec svg_rect level (T.Node ((info,r), a)) =
       if Array.length a = 0 then
-        leaf ~info ~level r
+        leaf ~info r
       else
         let children = svg_rects (level+1) @@ Iter.of_array a in
-        node ~info ~level r children
+        node ~info r children
     and svg_rects level a =
       Iter.map (svg_rect level) a |> Iter.to_list
 
@@ -316,9 +316,9 @@ svg {
       ]) []
 
     let make_scale_pointer ~color ~pct =
-      let stump_len = 17. in
+      (* let stump_len = 17. in *)
       let line_width = stroke_width in
-      let padding_horiz = 0.5 in
+      (* let padding_horiz = 0.5 in *)
       let padding_vert = 7.0 in
       let scale_line =
         let lr_stump_y = 100. in
