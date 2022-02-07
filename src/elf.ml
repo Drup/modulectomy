@@ -205,8 +205,8 @@ let mk_info_tbl buffer sections =
           assert false)
       modules []
   in
-  List.iter (fun (start, stop) ->
-      Printf.eprintf "range: %08Lx - %08Lx\n" start stop) ranges;
+  (* List.iter (fun (start, stop) ->
+   *     Printf.eprintf "range: %08Lx - %08Lx\n" start stop) ranges; *)
   let in_range addr =
     List.exists (fun (start, stop) ->
         (addr >= start && addr <= stop))
@@ -273,7 +273,7 @@ let print_section s =
 
 let get path =
   let buffer = mk_buffer path in
-  Printf.eprintf "bigarray size %d\n" (Bigarray.Array1.size_in_bytes buffer);
+  (* Printf.eprintf "bigarray size %d\n" (Bigarray.Array1.size_in_bytes buffer); *)
   let _header, sections = Owee_elf.read_elf buffer in
   (* let check_consistency acc_offset section =
    *   print_section section;
@@ -282,15 +282,15 @@ let get path =
    *       section.sh_offset acc_offset;
    *   Int64.add section.sh_offset section.sh_size
    * in *)
-  let compute_section_sizes size section =
-    if section.sh_addr <> 0L then begin
-      print_section section ;
-      Int64.add size section.sh_size
-    end else size
-  in (* 35000 bytes more in section_size than in the binary hvt *)
+  (* let compute_section_sizes size section =
+   *   if section.sh_addr <> 0L then begin
+   *     print_section section ;
+   *     Int64.add size section.sh_size
+   *   end else size
+   * in *) (* 35000 bytes more in section_size than in the binary hvt *)
   (* Array.fold_left check_consistency 0L sections |> ignore; *)
-  let section_size = Array.fold_left compute_section_sizes 0L sections in
-  Printf.eprintf "accounted section size %Lu\n" section_size;
+  (* let section_size = Array.fold_left compute_section_sizes 0L sections in *)
+  (* Printf.eprintf "accounted section size %Lu\n" section_size; *)
   match mk_info_tbl buffer sections with
   | None -> Error `Invalid_file
   | Some h -> Ok (fun k -> AddrTbl.iter (fun _ x -> k x) h)
