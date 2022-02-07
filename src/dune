@@ -8,7 +8,7 @@
    iter containers containers-data fpath
    tyre fmt 
  )
- (flags (:standard (-w -27-26)))
+ ;; (flags (:standard (-w -27-26)))
  )
   
 
@@ -17,5 +17,5 @@
  (modules main)
  (public_name modulectomy)
  (libraries cmdliner modulectomy)
- (flags (:standard (-w -27-26)))
+ ;; (flags (:standard (-w -27-26)))
 )
