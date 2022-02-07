@@ -264,12 +264,12 @@ let mk_buffer path =
   Unix.close fd;
   map
 
-let print_section s =
-    let open Owee_elf in
-    Printf.eprintf "0x%08Lx - 0x%08Lx (VM 0x%08Lx - 0x%08Lx) section %s\n"
-      s.sh_offset (Int64.add s.sh_offset s.sh_size)
-      s.sh_addr (Int64.add s.sh_addr s.sh_size)
-      s.sh_name_str
+(* let print_section s =
+ *     let open Owee_elf in
+ *     Printf.eprintf "0x%08Lx - 0x%08Lx (VM 0x%08Lx - 0x%08Lx) section %s\n"
+ *       s.sh_offset (Int64.add s.sh_offset s.sh_size)
+ *       s.sh_addr (Int64.add s.sh_addr s.sh_size)
+ *       s.sh_name_str *)
 
 let get path =
   let buffer = mk_buffer path in
