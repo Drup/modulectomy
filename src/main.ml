@@ -1,6 +1,8 @@
 open CCResult.Infix
 open Modulectomy
 
+let debug = false
+
 type ty =
   | Elf
 
@@ -12,27 +14,30 @@ let get_file (file, ty) = match ty with
     in
     CCResult.map_err f @@ Elf.get file
 
+let print_debug ~size ~tree =
+  Printf.eprintf "treemap size: %Ld \n" size;
+  let ranges = Info.find_ranges tree in
+  let compute_range_size acc (start, stop, _) =
+    Int64.add acc (Int64.sub stop start)
+  in
+  let size = List.fold_left compute_range_size 0L ranges in
+  Printf.eprintf "ranges size: %Lu\n" size;
+  Printf.eprintf "ranges:\n";
+  let x = ref 0L in
+  List.iter (fun (start, stop, v) ->
+    Printf.eprintf "0x%08Lx - 0x%08Lx %s\n" start stop v;
+    if start > Int64.add !x 16L then
+      Printf.eprintf "  GAP before: %Ld\n"  (Int64.sub start !x);
+    x := stop)
+    ranges;
+  Printf.eprintf "\n"
+
 let squarify infos =
   infos
   |> Info.import
   |> (fun info ->
       let size, tree = Info.diff_size_tree info in
-      Printf.eprintf "treemap size: %Ld \n" size;
-      let ranges = Info.find_ranges tree in
-      let compute_range_size acc (start, stop, _) =
-        Int64.add acc (Int64.sub stop start)
-      in
-      let size = List.fold_left compute_range_size 0L ranges in
-      Printf.eprintf "ranges size: %Lu\n" size;
-      Printf.eprintf "ranges:\n";
-      let x = ref 0L in
-      List.iter (fun (start, stop, v) ->
-          Printf.eprintf "0x%08Lx - 0x%08Lx %s\n" start stop v;
-          if start > Int64.add !x 16L then
-            Printf.eprintf "  GAP before: %Ld\n"  (Int64.sub start !x);
-          x := stop)
-        ranges;
-      Printf.eprintf "\n";
+      if debug then print_debug ~size ~tree;
       tree
     )
   (* |> Info.diff_size *)
