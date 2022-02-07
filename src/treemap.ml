@@ -295,18 +295,6 @@ svg {
         ] []
       )
 
-    (*goto howto
-      * either render blocks beside eachother, 
-        * or render on top, like the tree does - 
-          * ! so on mouse-over the actual range is highlighted 
-      * note for tree-rendering;
-        * scale is a rosetree of 1 level
-          * root is whole binary 
-          * children are siblings under root
-      * ui
-        * add pct text to each leaf-block?
-    *)
-
     let make_label label = Svg.(
       text ~a:[
         a_class ["scale-header"];
@@ -379,8 +367,9 @@ svg {
                 rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
                 Svg.g children_svgs
               ]
-            (*< goto return aspect ratio (or something else) 
-              to be able to make correctly sized iframe*)
+            (*< TODO return aspect ratio (or something else) 
+              to be able to make correctly sized container 
+              (though treemap might always be square) *)
             (* make_label @@ sp "%.0f%%" pct; *)
           in
           let svg = Svg.g ~a:[
