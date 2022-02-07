@@ -316,21 +316,17 @@ svg {
       ]) []
 
     let make_scale_pointer ~color ~pct =
-      (* let stump_len = 17. in *)
       let line_width = stroke_width in
-      (* let padding_horiz = 0.5 in *)
       let padding_vert = 7.0 in
       let scale_line =
         let lr_stump_y = 100. in
-        (* let line_y = lr_stump_y -. stump_len -. line_width /. 2. in  *)
         let line_y = 75. +. padding_vert /. 2. in 
-        let line_x0 = 0. (* +. padding_horiz *) in
-        let l_stump_x = line_x0 +. line_width /. 2. -. 0.00 in
-        (* let line_x1 = treemap_pct -. padding_horiz in *)
-        let line_x1 = 100. (* -. padding_horiz *) in
-        let r_stump_x = line_x1 -. line_width /. 2. +. 0.00  in
+        let line_x0 = 0. in
+        let l_stump_x = line_x0 +. line_width /. 2. in
+        let line_x1 = 100. in
+        let r_stump_x = line_x1 -. line_width /. 2. in
         let m_stump_x = pct /. 2. in
-        let m_stump_y = 50. (* +. padding_vert *) in
+        let m_stump_y = 50. in
         let stumps = Svg.g [
           line ~x0:m_stump_x ~y0:m_stump_y ~x1:m_stump_x ~y1:line_y;
           line ~x0:l_stump_x ~y0:lr_stump_y ~x1:l_stump_x ~y1:line_y;
