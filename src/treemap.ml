@@ -380,7 +380,7 @@ svg {
       in
       aux ([], 0.) tree |> fst
 
-    let make ~treemap_size ~binary_size ~subtrees:input_subtrees =
+    let make ~treemap_size ~binary_size ~sub_chunks =
       let binary_size = float binary_size in
       assert (binary_size >= treemap_size);
       let treemap_pct = 100. *. treemap_size /. binary_size in
@@ -390,7 +390,7 @@ svg {
         Format.asprintf "%s: %a" tag Fmt.byte_size size
       in
       let input_subtrees =
-        input_subtrees |> List.map (fun (tag, size) ->
+        sub_chunks |> List.map (fun (tag, size) ->
           let size = Int64.to_float size in
           let pct = 100. *. size /. binary_size in
           Rose_tree.node (pct, size_string tag size, false) []
@@ -423,7 +423,7 @@ svg {
     let a_tree, treemap = Treemap.make rect trees in
     let treemap_size = rect.w *. rect.h in
     let a_scale, scale =
-      Scale.make ~treemap_size ~binary_size ~subtrees:scale_chunks in
+      Scale.make ~treemap_size ~binary_size ~sub_chunks:scale_chunks in
     H.html
       (H.head (H.title (H.txt "Treemap")) [
           H.style [H.Unsafe.data @@ merge_css [ css; override_css ]]
@@ -446,8 +446,8 @@ svg {
 end
 
 let to_svg tree = Render.svg tree, Render.css
-(** [Treemap.to_svg tree] returns a tuple of the treemap-SVG and the CSS. 
-    The SVG won't render correctly without the CSS. 
+(** [Treemap.to_svg tree] returns a tuple of the interactive treemap-SVG and 
+    the CSS. The SVG won't render correctly without the CSS. 
 
     The scale-SVG is not included. Use [Render.Scale.make] for this. *)
                                      
@@ -461,8 +461,7 @@ let to_html_with_scale = Render.html_with_scale
     includes a scale-SVG that shows the size of data rendered by the 
     treemap relative to the binary size and other 'chunks' of data. 
 
-    The [scale_chunks] is a list of names and sizes of chunks of the binary 
-    that are not included in the treemap. These sizes are subsets of the 
-    total binary size. *)
+    The [scale_chunks] is a list of names and sizes of chunks of the binary,
+    which are not included in the treemap. *)
 
 
