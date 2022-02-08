@@ -1,3 +1,4 @@
+let sp = Printf.sprintf
 
 module T = Tree_layout
 
@@ -7,6 +8,7 @@ type node = {
   size : float ;
   data : Info.data
 }
+
 type t = {
   rect : T.Common.rectangle ;
   trees : (node * T.Common.rectangle) T.tree Iter.t ;
@@ -21,11 +23,9 @@ let rec area = function
 and areal a = Iter.sumf @@ Iter.map area a
 
 let rec to_tree_layout path (Info.T.T t) =
-  Info.SMap.to_seq t
-  |> Seq.map (node_to_tree_layout path)
-  |> List.of_seq
-  |> List.sort (fun t1 t2 -> - (Float.compare (area t1) (area t2)))
-  |> Iter.of_list
+  Info.SMap.to_iter t
+  |> Iter.map (node_to_tree_layout path)
+  |> Iter.sort ~cmp:(fun t1 t2 -> - (Float.compare (area t1) (area t2)))
 
 and node_to_tree_layout path (label, {value; children}) =
   let new_path = path @ [label] in
@@ -61,11 +61,12 @@ let of_tree l =
   let rect = rect_of_tree l in
   { rect ; trees = Tree_layout.treemap ~area rect l}
 
-module Doc = struct
+module Render = struct
   open Tyxml
-  open Tree_layout.Common
 
-  let css = {|
+  let stroke_width = 0.6
+
+  let css = sp {|
 .unlocated {
   filter:blur(0.1);
 }
@@ -88,7 +89,7 @@ module Doc = struct
   fill:#6AFF8F;
 }
 .border {
-  stroke:black;
+  stroke:gray;
   fill:none;
 }
 .label,.header {
@@ -107,81 +108,101 @@ module Doc = struct
 .functor > text, .module > text {
   fill:white;
 }
-|}
 
-  let area_of_pos {w ; h ; _ } = h *. w
+
+.scale-header {
+  fill:white;
+}
+.scale-fill:hover {
+  filter: grayscale(0%%) !important;
+}
+.scale-fill:hover ~ g {
+  filter: grayscale(0%%) !important;
+}
+.scale-node > .scale-fill:hover ~ * .scale-fill {
+  filter: grayscale(0%%) !important;
+}
+.scale-line {
+  stroke-width: %f;
+}
+svg {
+  stroke-width: 0;
+}
+|} stroke_width
   
-  let class_from_info (info : node) =
-    let l = match info.data.location with
-      | Some _ -> []
-      | None -> ["unlocated"]
-    in
-    Info.to_string info.data.kind :: l
+  module Treemap = struct
 
-  let title_of_info info area =
-    let pp_size ppf f =
-      let (fmt : _ format), f =
-        if f < 1024. then "%.0fB", f
-        else if f < 1024.*.1024. then "%.2fkB", f/.1024.
-        else "%.2fMB", f/.1024./.1024.
-      in              
-      Format.fprintf ppf fmt f
-    in
-    (* let pp_file ppf = function
-     *   | None -> ()
-     *   | Some (f,_,_) ->
-     *     Format.fprintf ppf "@.file: %a"
-     *       Fpath.pp
-     *       Fpath.(normalize @@ v f)
-     * in *)
-    let sep : _ format = if info.data.kind = Primitive then "-" else "." in
-    let pp_path = CCFormat.(list ~sep:(return sep) string) in
-    let s =
-      Format.asprintf
-        "name: %a@.size: %a@.type: %s"
-        pp_path (info.path @ [info.label])
-        pp_size area
-        (Info.to_string info.data.kind)
-        (* pp_file info.data.location *)
-    in
-    Svg.(title (txt s))
-  
-  let mk_border ~level { p ; w ; h } =
-    let stroke = exp (-. 1.5 *. float level) in
-    Svg.[
-      rect ~a:[
-        a_class ["border"] ;
-        a_x (p.x, None) ; a_y (p.y, None) ;
-        a_width (w, None) ; a_height (h, None) ;
-        a_stroke_width (stroke, None) ;
-      ] []
-    ]
-  let mk_rect { p ; w ; h } =
-    Svg.[
-      rect ~a:[
-        a_class ["fill"];
-        a_x (p.x, None) ; a_y (p.y, None) ;
-        a_width (w, None) ; a_height (h, None) ;
-      ] []
-    ]
+    open Tree_layout.Common
 
-  let a_center_position { p ; w ; h } = Svg.[
+    let area_of_pos {w ; h ; _ } = h *. w
+
+    let class_from_info (info : node) =
+      let l = match info.data.location with
+        | Some _ -> []
+        | None -> ["unlocated"]
+      in
+      Info.to_string info.data.kind :: l
+
+    let title_of_info info area =
+      let area = truncate area in
+      (* let pp_file ppf = function
+       *   | None -> ()
+       *   | Some (f,_,_) ->
+       *     Format.fprintf ppf "@.file: %a"
+       *       Fpath.pp
+       *       Fpath.(normalize @@ v f)
+       * in *)
+      let sep : _ format = if info.data.kind = Primitive then "-" else "." in
+      let pp_path = CCFormat.(list ~sep:(return sep) string) in
+      let s =
+        Format.asprintf
+          "name: %a@.size: %a@.type: %s"
+          pp_path (info.path @ [info.label])
+          Fmt.byte_size area
+          (Info.to_string info.data.kind)
+          (* pp_file info.data.location *)
+      in
+      Svg.(title (txt s))
+
+    let make_border { p ; w ; h } =
+      (* let stroke = exp (-. 1.5 *. float level) in *)
+      let stroke = 20. in
+      Svg.[
+        rect ~a:[
+          a_class ["border"] ;
+          a_x (p.x, None) ; a_y (p.y, None) ;
+          a_width (w, None) ; a_height (h, None) ;
+          a_stroke_width (stroke, None) ;
+        ] []
+      ]
+
+    let make_rect { p ; w ; h } =
+      Svg.[
+        rect ~a:[
+          a_class ["fill"];
+          a_x (p.x, None) ; a_y (p.y, None) ;
+          a_width (w, None) ; a_height (h, None) ;
+        ] []
+      ]
+
+    let a_center_position { p ; w ; h } = Svg.[
       a_x_list [p.x +. w/.2., None] ;
       a_y_list [p.y +. h/.2., None] ;
       a_text_anchor `Middle;
     ]
-  let a_left_position p = Svg.[
+
+    let a_left_position p = Svg.[
       a_x_list [p.x, None] ;
       a_dx_list [1.,Some `Px] ;
       a_y_list [p.y, None] ;
       a_text_anchor `Start;
     ]
 
-  let leaf ~info ~level pos =
-    (* let angle = -.180.*.tanh (pos.h/.pos.w)/.Float.pi in
-     * let center = pos.p.x+.pos.w/.2. , pos.p.y+.pos.h/.2. in *)
-    let label = 
-      Svg.[text ~a:(
+    let leaf ~info pos =
+      (* let angle = -.180.*.tanh (pos.h/.pos.w)/.Float.pi in
+       * let center = pos.p.x+.pos.w/.2. , pos.p.y+.pos.h/.2. in *)
+      let label = 
+        Svg.[text ~a:(
           a_class ["label"] ::
           a_dominant_baseline `Central ::
           (* a_transform [`Rotate ((angle, None), Some center)] :: *)
@@ -189,71 +210,254 @@ module Doc = struct
           a_center_position pos;
         ) [txt @@ info.label] ;
         ]
-    in
-    let title = title_of_info info @@ area_of_pos pos in
-    Svg.g
-      ~a:[Svg.a_class ("leaf" :: class_from_info info)]
-      (title :: mk_rect pos @ label @ mk_border ~level pos)
+      in
+      let title = title_of_info info @@ area_of_pos pos in
+      Svg.g
+        ~a:[Svg.a_class ("leaf" :: class_from_info info)]
+        (title :: make_rect pos @ label @ make_border pos)
 
-  let header_node ~info pos =
-    let header_pos = {pos with h = pos.h/.13.} in
-    let label =
-      Svg.[text ~a:(
+    let header_node ~info pos =
+      let header_pos = {pos with h = pos.h/.13.} in
+      let label =
+        Svg.[text ~a:(
           a_class ["header"] ::
           a_dominant_baseline `Hanging ::
           (a_font_size @@ string_of_float @@ header_pos.h) ::
           a_left_position pos.p;
         ) [txt @@ info.label] ;
         ]
-    in
-    mk_rect pos @ label
-    
-  let node ~info ~level pos children =
-    let title = title_of_info info @@ area_of_pos pos in
-    let header = header_node ~info pos in
-    Svg.g
-      ~a:[Svg.a_class ("node" :: class_from_info info)]
-      (title :: header @ children @ mk_border ~level pos)
+      in
+      make_rect pos @ label
 
-  let list_map_array f a = List.map f @@ Array.to_list a
-  let list_flatmap_array f a =
-    List.concat @@ list_map_array f a
+    let node ~info pos children =
+      let title = title_of_info info @@ area_of_pos pos in
+      let header = header_node ~info pos in
+      Svg.g
+        ~a:[Svg.a_class ("node" :: class_from_info info)]
+        (title :: header @ children @ make_border pos)
 
-  let viewbox_of_rect { p ; w ; h } = Svg.a_viewBox (p.x, p.y, w, h)
+    let list_map_array f a = List.map f @@ Array.to_list a
+    let list_flatmap_array f a =
+      List.concat @@ list_map_array f a
 
-  let rec svg_rect level (T.Node ((info,r), a)) =
-    if Array.length a = 0 then
-      leaf ~info ~level r
-    else
-      let children = svg_rects (level+1) @@ Iter.of_array a in
-      node ~info ~level r children
-  and svg_rects level a =
-    Iter.map (svg_rect level) a |> Iter.to_list
+    let viewbox_of_rect { p ; w ; h } = Svg.a_viewBox (p.x, p.y, w, h)
 
-  let treemap r trees =
-    let a = [
+    let rec svg_rect level (T.Node ((info,r), a)) =
+      if Array.length a = 0 then
+        leaf ~info r
+      else
+        let children = svg_rects (level+1) @@ Iter.of_array a in
+        node ~info r children
+    and svg_rects level a =
+      Iter.map (svg_rect level) a |> Iter.to_list
+
+    let make r trees =
+      let a = [
         (* a_style "width:100%;height:auto"; *)
         viewbox_of_rect r ;
       ]
-    and t = (
-      svg_rects 0 trees
-    )
-    in
-    a, t
+      and t = (
+        svg_rects 0 trees
+      )
+      in
+      a, t
 
-  let svg {rect; trees} =
-    let a, t = treemap rect trees in
+  end
+
+  module H = Html
+
+  module Scale = struct
+
+    module Rose_tree = struct 
+
+      type 'a t = Node of 'a * 'a t list
+
+      let node v t = Node (v, t)
+
+    end
+
+    let pct x = x, Some `Percent
+
+    let style_of_color (r, g, b) =
+      let color_str = sp "rgb(%d,%d,%d)" r g b in
+      sp "stroke: %s; fill: %s; filter: grayscale(100%%);" color_str color_str 
+    
+    let rect ~color ~w ~h ~x ~y =
+      let style_str = style_of_color color in
+      Svg.(
+        rect ~a:[
+          a_class ["scale-fill"]; 
+          a_style style_str;
+          a_x @@ pct x;
+          a_y @@ pct y;
+          a_width @@ pct w;
+          a_height @@ pct h;
+        ] []
+      )
+
+    let make_label label = Svg.(
+      text ~a:[
+        a_class ["scale-header"];
+        a_dominant_baseline `Hanging;
+        a_text_anchor `Start;
+        a_font_size @@ "0.115em";
+        a_x_list [ pct 1. ];
+        a_y_list [ pct 25. ];
+      ] [txt @@ label] ;
+    )
+
+    let line ~x0 ~y0 ~x1 ~y1 =
+      Svg.(line ~a:[
+        a_class [ "scale-line" ];
+        a_x1 @@ pct x0;
+        a_y1 @@ pct y0;
+        a_x2 @@ pct x1;
+        a_y2 @@ pct y1;
+      ]) []
+
+    let make_scale_pointer ~color ~pct =
+      let line_width = stroke_width in
+      let padding_vert = 7.0 in
+      let scale_line =
+        let lr_stump_y = 100. in
+        let line_y = 75. +. padding_vert /. 2. in 
+        let line_x0 = 0. in
+        let l_stump_x = line_x0 +. line_width /. 2. in
+        let line_x1 = 100. in
+        let r_stump_x = line_x1 -. line_width /. 2. in
+        let m_stump_x = pct /. 2. in
+        let m_stump_y = 50. in
+        let stumps = Svg.g [
+          line ~x0:m_stump_x ~y0:m_stump_y ~x1:m_stump_x ~y1:line_y;
+          line ~x0:l_stump_x ~y0:lr_stump_y ~x1:l_stump_x ~y1:line_y;
+          line ~x0:r_stump_x ~y0:lr_stump_y ~x1:r_stump_x ~y1:line_y; 
+        ]
+        in
+        let a = [ Svg.a_style (style_of_color color) ] in
+        Svg.g ~a [
+          stumps;
+          line ~x0:line_x0 ~y0:line_y ~x1:line_x1 ~y1:line_y
+        ]
+      in
+      scale_line
+
+    let make_scale_tree tree =
+      let rec aux (acc_children, acc_pct) = function
+        | Rose_tree.Node ((pct, title, scale_pointer), children) ->
+          let children_svgs, _ =
+            children |> List.fold_left aux ([], acc_pct) in
+          let c max_v =
+            (0.4 +. 1.0 *. (1. -. pct /. 100.))
+            *. max_v
+            |> truncate in
+          let color = c 109., c 109., c 255. in
+          let svg_content = match scale_pointer with
+            | true -> [
+                Svg.title @@ Svg.txt title;
+                rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
+                make_scale_pointer ~color ~pct;
+                Svg.g children_svgs
+              ]
+            | false -> [
+                Svg.title @@ Svg.txt title;
+                rect ~color ~w:pct ~h:50. ~x:acc_pct ~y:0.;
+                Svg.g children_svgs
+              ]
+            (*< TODO return aspect ratio (or something else) 
+              to be able to make correctly sized container 
+              (though treemap might always be square) *)
+            (* make_label @@ sp "%.0f%%" pct; *)
+          in
+          let svg = Svg.g ~a:[
+            Svg.a_class ["scale-node"];
+          ] svg_content
+          in
+          svg :: acc_children, pct +. acc_pct
+      in
+      aux ([], 0.) tree |> fst
+
+    let make ~treemap_size ~binary_size ~sub_chunks =
+      let binary_size = float binary_size in
+      assert (binary_size >= treemap_size);
+      let treemap_pct = 100. *. treemap_size /. binary_size in
+      let size_string tag size =
+        (*TODO: use integers for sizes throughout*)
+        let size = truncate size in 
+        Format.asprintf "%s: %a" tag Fmt.byte_size size
+      in
+      let input_subtrees =
+        sub_chunks |> List.map (fun (tag, size) ->
+          let size = Int64.to_float size in
+          let pct = 100. *. size /. binary_size in
+          Rose_tree.node (pct, size_string tag size, false) []
+        )
+      in
+      let scale_tree = Rose_tree.(
+        node (100., size_string "Binary" binary_size, false) (
+          node (treemap_pct, size_string "Treemap" treemap_size, true) []
+          :: input_subtrees
+        ))
+      in
+      let scale_svg = make_scale_tree scale_tree in
+      let a = [ Svg.a_viewBox (0., 0., 100., 6.) ] in
+      a, scale_svg
+
+  end
+
+  let svg { rect; trees } =
+    let a, t = Treemap.make rect trees in
     Svg.svg ~a t
+
+  let merge_css = String.concat "\n"
   
-  let html {rect; trees} =
-    let attr, t = treemap rect trees in
-    let open Html in
-    html
-      (head (title (txt "Treemap")) [style [Unsafe.data css]])
-      (body [svg ~a:attr t])
-  
+  let html_with_scale
+      ~binary_size
+      ~scale_chunks
+      ?(override_css="")
+      { rect; trees }
+    =
+    let a_tree, treemap = Treemap.make rect trees in
+    let treemap_size = rect.w *. rect.h in
+    let a_scale, scale =
+      Scale.make ~treemap_size ~binary_size ~sub_chunks:scale_chunks in
+    H.html
+      (H.head (H.title (H.txt "Treemap")) [
+          H.style [H.Unsafe.data @@ merge_css [ css; override_css ]]
+        ])
+      (H.body [
+          H.svg ~a:a_scale scale;
+          H.svg ~a:a_tree treemap;
+        ])
+
+  let html ?(override_css="") { rect; trees } =
+    let a_tree, treemap = Treemap.make rect trees in
+    H.html
+      (H.head (H.title (H.txt "Treemap")) [
+          H.style [H.Unsafe.data @@ merge_css [ css; override_css ]]
+        ])
+      (H.body [
+          H.svg ~a:a_tree treemap;
+        ])
+
 end
 
-let svg = Doc.svg
-let html = Doc.html
-let doc = html
+let to_svg tree = Render.svg tree, Render.css
+(** [Treemap.to_svg tree] returns a tuple of the interactive treemap-SVG and 
+    the CSS. The SVG won't render correctly without the CSS. 
+
+    The scale-SVG is not included. Use [Render.Scale.make] for this. *)
+                                     
+let to_html = Render.html
+(** [Treemap.to_html ?override_css tree] returns HTML ready to render the
+    interactive treemap-SVG *)
+
+let to_html_with_scale = Render.html_with_scale
+(** [Treemap.to_html_with_scale ?override_css ~binary_size ~scale_chunks tree] 
+    returns HTML ready to render the interactive treemap-SVG. It also 
+    includes a scale-SVG that shows the size of data rendered by the 
+    treemap relative to the binary size and other 'chunks' of data. 
+
+    The [scale_chunks] is a list of names and sizes of chunks of the binary,
+    which are not included in the treemap. *)
+
+

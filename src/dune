@@ -6,9 +6,10 @@
    owee
    modulectomy.tree_layout tyxml
    iter containers containers-data fpath
-   tyre
+   tyre fmt 
  )
-)
+ ;; (flags (:standard (-w -27-26)))
+ )
   
 
 (executable
@@ -16,4 +17,5 @@
  (modules main)
  (public_name modulectomy)
  (libraries cmdliner modulectomy)
+ ;; (flags (:standard (-w -27-26)))
 )

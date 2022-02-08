@@ -19,6 +19,7 @@ depends: [
   "tyxml"
   "tyre"
   "cmdliner"
+  "fmt"
 ]
 build: [
   ["dune" "subst"] {dev}
