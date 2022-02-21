@@ -54,10 +54,10 @@ let guess file =
 
 let programs_arg =
   let open Cmdliner in
-  let flatten x = Term.(pure List.flatten $ x) in
+  let flatten x = Term.(const List.flatten $ x) in
   let annot f t =
     let g l = List.map (fun x -> (x, f x)) l in
-    Term.(pure g $ t) in
+    Term.(const g $ t) in
   let elf_args =
     let doc = "Native ELF (Linux) binaries. Requires the $(b,owee) library. For better results, the binary file should have been compiled with debug information." in
     let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
@@ -75,7 +75,7 @@ let programs_arg =
     | [] -> `Help (`Auto, None)
     | l -> `Ok l
   in
-  Term.(ret (pure take_all $ elf_args $ guess_args))
+  Term.(ret (const take_all $ elf_args $ guess_args))
 
 let squarify_files files =
   let rec get_all = function
@@ -91,8 +91,10 @@ let squarify_files files =
 let main_term =
   let open Cmdliner in
   let doc = "Dissect OCaml compiled programs, and weight their content." in
-  let i = Term.info ~doc "modulectomy" in
-  Term.(term_result (pure squarify_files $ programs_arg)), i
+  let info = Cmd.info ~doc "modulectomy" in
+  let term = Term.(term_result (const squarify_files $ programs_arg)) in
+  Cmd.v info term
 
 let () =
-  Cmdliner.Term.(exit @@ eval main_term)
+  Cmdliner.Cmd.eval main_term
+  |> exit
