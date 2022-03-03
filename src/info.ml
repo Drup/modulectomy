@@ -121,7 +121,7 @@ let rec diff_size_tree ?(n = "") ((T.T t) : t) =
 and diff_size_node v T.{ value; children } =
   match value.kind with
   | Module ->
-    Printf.eprintf "module %s\n" v;
+    (* Printf.eprintf "module %s\n" v; *)
     begin
       let (T child_nodes) = children in
       match SMap.find_opt "code" child_nodes with
