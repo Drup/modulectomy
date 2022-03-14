@@ -244,7 +244,9 @@ svg {
 
     let rec svg_rect level (T.Node ((info,r), a)) =
       if Array.length a = 0 then
-        leaf ~info r
+        let eps = 0.0001 in
+        if info.size < eps then Svg.g [] else
+          leaf ~info r
       else
         let children = svg_rects (level+1) @@ Iter.of_array a in
         node ~info r children
@@ -252,14 +254,8 @@ svg {
       Iter.map (svg_rect level) a |> Iter.to_list
 
     let make r trees =
-      let a = [
-        (* a_style "width:100%;height:auto"; *)
-        viewbox_of_rect r ;
-      ]
-      and t = (
-        svg_rects 0 trees
-      )
-      in
+      let a = [ viewbox_of_rect r ]
+      and t = svg_rects 0 trees in
       a, t
 
   end
