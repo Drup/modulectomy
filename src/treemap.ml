@@ -437,23 +437,25 @@ svg {
 
 end
 
-let to_svg tree = Render.svg tree, Render.css
-(** [Treemap.to_svg tree] returns a tuple of the interactive treemap-SVG and 
-    the CSS. The SVG won't render correctly without the CSS. 
-
-    The scale-SVG is not included. Use [Render.Scale.make] for this. *)
-                                     
 let to_html = Render.html
-(** [Treemap.to_html ?override_css tree] returns HTML ready to render the
-    interactive treemap-SVG *)
+(** [Treemap.to_html ?override_css tree] renders the interactive Treemap-SVG 
+    as HTML including the needed CSS*)
 
 let to_html_with_scale = Render.html_with_scale
 (** [Treemap.to_html_with_scale ?override_css ~binary_size ~scale_chunks tree] 
-    returns HTML ready to render the interactive treemap-SVG. It also 
-    includes a scale-SVG that shows the size of data rendered by the 
-    treemap relative to the binary size and other 'chunks' of data. 
+    Renders both the interactive Treemap-SVG and Scale-SVG as HTML, 
+    including their needed CSS. 
+    The Scale-SVG shows the size of data rendered by the Treemap, relative to 
+    the binary size and other 'scale_chunks' of data. 
 
     The [scale_chunks] is a list of names and sizes of chunks of the binary,
-    which are not included in the treemap. *)
+    which are not included in the treemap. Can e.g. be used to show excluded
+    modules.
+
+    The full [binary_size] in bytes needs to be supplied. 
+
+    [override_css] lets you supply a CSS string that is appended, which 
+    therefore lets you add new, or override existing CSS selectors.
+*)
 
 
