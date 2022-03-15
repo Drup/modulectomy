@@ -67,69 +67,72 @@ module Render = struct
   let stroke_width = 0.6
 
   let css = sp {|
-.unlocated {
+.treemap-unlocated {
   filter:blur(0.1);
 }
-.functor {
+.treemap-functor {
   fill:#867613;
 }
-.function {
+.treemap-function {
   fill:#F1E8AE;
 }
-.module {
+.treemap-module {
   fill:#123557;
 }
-.value {
+.treemap-value {
   fill:#74899D;
 }
-.primitive {
+.treemap-primitive {
   fill:#CE6C6C;
 }
-.unknown {
+.treemap-unknown {
   fill:#6AFF8F;
 }
-.border {
+.treemap-border {
   stroke:gray;
   fill:none;
 }
-.label,.header {
+.treemap-label,.treemap-header {
   font-family:monospace;
   fill:black;
   stroke:none;
 }
-.leaf:hover > .fill,
-.node:hover > .fill {
+.treemap-leaf:hover > .treemap-fill,
+.treemap-node:hover > .treemap-fill {
   filter: brightness(1.4);
 }
-.node > .header:hover ~ * .fill,
-.node > .fill:hover ~ * .fill {
+.treemap-node > .treemap-header:hover ~ * .treemap-fill,
+.treemap-node > .treemap-fill:hover ~ * .treemap-fill {
   filter: brightness(1.4);
 }
-.functor > text, .module > text {
+.treemap-functor > text, .treemap-module > text {
   fill:white;
 }
 
 
-.scale-header {
+.treemap-scale-header {
   fill:white;
 }
-.scale-fill:hover {
+.treemap-scale-fill:hover {
   filter: grayscale(0%%) !important;
 }
-.scale-fill:hover ~ g {
+.treemap-scale-fill:hover ~ g {
   filter: grayscale(0%%) !important;
 }
-.scale-node > .scale-fill:hover ~ * .scale-fill {
+.treemap-scale-node > .scale-fill:hover ~ * .scale-fill {
   filter: grayscale(0%%) !important;
 }
-.scale-line {
+.treemap-scale-line {
   stroke-width: %f;
 }
-svg {
+
+.treemap-svg-wrap {
   stroke-width: 0;
 }
 |} stroke_width
   
+  let scoped_class s = "treemap-"^s
+
   module Treemap = struct
 
     open Tree_layout.Common
@@ -139,9 +142,14 @@ svg {
     let class_from_info (info : node) =
       let l = match info.data.location with
         | Some _ -> []
-        | None -> ["unlocated"]
+        | None -> [scoped_class "unlocated"]
       in
-      Info.to_string info.data.kind :: l
+      let kind_class =
+        info.data.kind
+        |> Info.to_string
+        |> scoped_class
+      in
+      kind_class :: l
 
     let title_of_info info area =
       let area = truncate area in
@@ -169,7 +177,7 @@ svg {
       let stroke = 20. in
       Svg.[
         rect ~a:[
-          a_class ["border"] ;
+          a_class [scoped_class "border"] ;
           a_x (p.x, None) ; a_y (p.y, None) ;
           a_width (w, None) ; a_height (h, None) ;
           a_stroke_width (stroke, None) ;
@@ -179,7 +187,7 @@ svg {
     let make_rect { p ; w ; h } =
       Svg.[
         rect ~a:[
-          a_class ["fill"];
+          a_class [scoped_class "fill"];
           a_x (p.x, None) ; a_y (p.y, None) ;
           a_width (w, None) ; a_height (h, None) ;
         ] []
@@ -203,7 +211,7 @@ svg {
        * let center = pos.p.x+.pos.w/.2. , pos.p.y+.pos.h/.2. in *)
       let label = 
         Svg.[text ~a:(
-          a_class ["label"] ::
+          a_class [scoped_class "label"] ::
           a_dominant_baseline `Central ::
           (* a_transform [`Rotate ((angle, None), Some center)] :: *)
           (a_font_size @@ string_of_float @@ (pos.w+.pos.h)/.20.) ::
@@ -213,14 +221,14 @@ svg {
       in
       let title = title_of_info info @@ area_of_pos pos in
       Svg.g
-        ~a:[Svg.a_class ("leaf" :: class_from_info info)]
+        ~a:[Svg.a_class (scoped_class "leaf" :: class_from_info info)]
         (title :: make_rect pos @ label @ make_border pos)
 
     let header_node ~info pos =
       let header_pos = {pos with h = pos.h/.13.} in
       let label =
         Svg.[text ~a:(
-          a_class ["header"] ::
+          a_class [scoped_class "header"] ::
           a_dominant_baseline `Hanging ::
           (a_font_size @@ string_of_float @@ header_pos.h) ::
           a_left_position pos.p;
@@ -233,7 +241,7 @@ svg {
       let title = title_of_info info @@ area_of_pos pos in
       let header = header_node ~info pos in
       Svg.g
-        ~a:[Svg.a_class ("node" :: class_from_info info)]
+        ~a:[Svg.a_class (scoped_class "node" :: class_from_info info)]
         (title :: header @ children @ make_border pos)
 
     let list_map_array f a = List.map f @@ Array.to_list a
@@ -254,7 +262,10 @@ svg {
       Iter.filter_map (svg_rect level) a |> Iter.to_list
 
     let make r trees =
-      let a = [ viewbox_of_rect r ]
+      let a = Svg.[
+        viewbox_of_rect r;
+        a_class [ scoped_class "svg-wrap" ];
+      ]
       and t = svg_rects 0 trees in
       a, t
 
@@ -282,7 +293,7 @@ svg {
       let style_str = style_of_color color in
       Svg.(
         rect ~a:[
-          a_class ["scale-fill"]; 
+          a_class [scoped_class "scale-fill"]; 
           a_style style_str;
           a_x @@ pct x;
           a_y @@ pct y;
@@ -293,7 +304,7 @@ svg {
 
     let make_label label = Svg.(
       text ~a:[
-        a_class ["scale-header"];
+        a_class [scoped_class "scale-header"];
         a_dominant_baseline `Hanging;
         a_text_anchor `Start;
         a_font_size @@ "0.115em";
@@ -304,7 +315,7 @@ svg {
 
     let line ~x0 ~y0 ~x1 ~y1 =
       Svg.(line ~a:[
-        a_class [ "scale-line" ];
+        a_class [ scoped_class "scale-line" ];
         a_x1 @@ pct x0;
         a_y1 @@ pct y0;
         a_x2 @@ pct x1;
@@ -365,7 +376,7 @@ svg {
             (* make_label @@ sp "%.0f%%" pct; *)
           in
           let svg = Svg.g ~a:[
-            Svg.a_class ["scale-node"];
+            Svg.a_class [scoped_class "scale-node"];
           ] svg_content
           in
           svg :: acc_children, pct +. acc_pct
@@ -395,14 +406,13 @@ svg {
         ))
       in
       let scale_svg = make_scale_tree scale_tree in
-      let a = [ Svg.a_viewBox (0., 0., 100., 6.) ] in
+      let a = Svg.[
+        a_viewBox (0., 0., 100., 6.);
+        a_class [ scoped_class "svg-wrap" ];
+      ] in
       a, scale_svg
 
   end
-
-  let svg { rect; trees } =
-    let a, t = Treemap.make rect trees in
-    Svg.svg ~a t
 
   let merge_css = String.concat "\n"
   
