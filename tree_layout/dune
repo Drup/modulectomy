@@ -1,7 +1,7 @@
 (library
- (name        tree_layout)
- (public_name        modulectomy.tree_layout)
- (synopsis  "Algorithms to layout trees in a pretty manner")
+ (name tree_layout)
+ (public_name modulectomy.tree_layout)
+ (synopsis "Algorithms to layout trees in a pretty manner")
  (ocamlopt_flags (:standard -O3))
  (libraries iter)
 )

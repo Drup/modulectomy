@@ -59,12 +59,16 @@ let programs_arg =
     let g l = List.map (fun x -> (x, f x)) l in
     Term.(const g $ t) in
   let elf_args =
-    let doc = "Native ELF (Linux) binaries. Requires the $(b,owee) library. For better results, the binary file should have been compiled with debug information." in
+    let doc = "Native ELF (Linux) binaries. Requires the $(b,owee) library. \
+               For better results, the binary file should have been compiled \
+               with debug information." in
     let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
     annot (fun _ -> Elf) @@ flatten Arg.(value & opt_all (list file) [] i)
   in
   let guess_args =
-    let doc = "OCaml compiled files that need to be analyzed. Can be one of formats described in $(b,FORMATS). By default, the format is guessed."
+    let doc = "OCaml compiled files that need to be analyzed. Can be one of \
+               formats described in $(b,FORMATS). By default, the format is \
+               guessed."
     in
     let i = Arg.info ~doc ~docv:"FILE" [] in
     annot guess Arg.(value & pos_all file [] i)
