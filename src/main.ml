@@ -59,7 +59,7 @@ let programs_arg =
     let g l = List.map (fun x -> (x, f x)) l in
     Term.(const g $ t) in
   let elf_args =
-    let doc = "Native ELF (Linux) binaries. Requires the $(b,owee) library. \
+    let doc = "Native ELF binaries. Requires the $(b,owee) library. \
                For better results, the binary file should have been compiled \
                with debug information." in
     let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
