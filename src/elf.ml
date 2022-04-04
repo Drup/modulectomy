@@ -53,9 +53,10 @@ module AddrTbl = CCHashtbl.Make(CCInt64)
 
 let mk_location_tbl buffer sections =
   Owee_elf.find_section sections ".debug_line" >|= fun section ->
-  let body = Owee_buf.cursor (Owee_elf.section_body buffer section) in
+  let pointers_to_other_sections = Owee_elf.debug_line_pointers buffer sections
+  and body = Owee_buf.cursor (Owee_elf.section_body buffer section) in
   let rec aux tbl =
-    match Owee_debug_line.read_chunk body with
+    match Owee_debug_line.read_chunk ~pointers_to_other_sections body with
     | None -> tbl
     | Some (header, chunk) ->
       let check header state tbl =
