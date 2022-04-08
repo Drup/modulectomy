@@ -32,56 +32,118 @@ let print_debug ~size ~tree =
     ranges;
   Printf.eprintf "\n"
 
-let squarify infos =
-  infos
-  |> Info.import
-  |> (fun info ->
+let robur_css_overrides = "\
+  .treemap-module {\
+    fill: rgb(60, 60, 87);\
+  }\
+  .treemap-functor > text, .treemap-module > text {\
+    fill: bisque;\
+  }\
+"
+
+let squarify filter_small with_scale robur_css infos =
+  let size, infos = 
+    infos
+    |> Info.import
+    |> (fun info ->
       let size, tree = Info.diff_size_tree info in
       if debug then print_debug ~size ~tree;
-      tree
+      size, tree
     )
-  (* |> Info.diff_size *)
-  |> Info.prefix_filename
-  |> Info.cut 2
-  |> Treemap.of_tree
-  |> Treemap.to_html
-  |> Format.printf "%a@." (Tyxml.Html.pp ())
+  in
+  (*> Note: this heuristic fails if one has many subtrees of equal size*)
+  let node_big_enough subtree =
+    match filter_small, Info.(subtree.T.value.size) with
+    | _, None | None, _ -> true 
+    | Some min_pct, Some subtree_size ->
+      let pct = Int64.(to_float subtree_size /. to_float size) in
+      pct > min_pct 
+  in
+  let infos, excluded_minors =
+    infos
+    |> Info.prefix_filename
+    |> Info.cut 2
+    |> Info.partition_subtrees node_big_enough
+  in
+  let override_css =
+    if not robur_css then None else
+      Some robur_css_overrides
+  in
+  let treemap = Treemap.of_tree infos in
+  let html = match with_scale with
+    | None -> Treemap.to_html ?override_css treemap
+    | Some elf_size ->
+      let scale_chunks =
+        let excluded_minors_size =
+          excluded_minors
+          |> List.map Info.compute_area
+          |> List.fold_left Int64.add 0L
+        in
+        [ "Smaller excluded entries", excluded_minors_size ]
+      in
+      Treemap.to_html_with_scale
+        ~binary_size:elf_size
+        ~scale_chunks
+        ?override_css
+        treemap
+  in
+  Tyxml.Html.pp () Format.std_formatter html
 
 let guess file =
   match Fpath.get_ext @@ Fpath.v file with
   | _ -> Elf
   | exception _ -> Elf
 
-let programs_arg =
-  let open Cmdliner in
-  let flatten x = Term.(const List.flatten $ x) in
-  let annot f t =
-    let g l = List.map (fun x -> (x, f x)) l in
-    Term.(const g $ t) in
-  let elf_args =
-    let doc = "Native ELF binaries. Requires the $(b,owee) library. \
-               For better results, the binary file should have been compiled \
-               with debug information." in
-    let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
-    annot (fun _ -> Elf) @@ flatten Arg.(value & opt_all (list file) [] i)
-  in
-  let guess_args =
-    let doc = "OCaml compiled files that need to be analyzed. Can be one of \
-               formats described in $(b,FORMATS). By default, the format is \
-               guessed."
-    in
-    let i = Arg.info ~doc ~docv:"FILE" [] in
-    annot guess Arg.(value & pos_all file [] i)
-  in
-  let take_all elfs guesses =
-    let l = elfs @ guesses in
-    match l with
-    | [] -> `Help (`Auto, None)
-    | l -> `Ok l
-  in
-  Term.(ret (const take_all $ elf_args $ guess_args))
+module Arg_aux = struct
 
-let squarify_files files =
+  open Cmdliner 
+
+  let programs_arg =
+    let flatten x = Term.(const List.flatten $ x) in
+    let annot f t =
+      let g l = List.map (fun x -> (x, f x)) l in
+      Term.(const g $ t) in
+    let elf_args =
+      let doc = "Native ELF binaries. Requires the $(b,owee) library. \
+                 For better results, the binary file should have been compiled \
+                 with debug information." in
+      let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
+      annot (fun _ -> Elf) @@ flatten Arg.(value & opt_all (list file) [] i)
+    in
+    let guess_args =
+      let doc = "OCaml compiled files that need to be analyzed. Can be one of \
+                 formats described in $(b,FORMATS). By default, the format is \
+                 guessed."
+      in
+      let i = Arg.info ~doc ~docv:"FILE" [] in
+      annot guess Arg.(value & pos_all file [] i)
+    in
+    let take_all elfs guesses =
+      let l = elfs @ guesses in
+      match l with
+      | [] -> `Help (`Auto, None)
+      | l -> `Ok l
+    in
+    Term.(ret (const take_all $ elf_args $ guess_args))
+
+  let filter_small =
+    let doc = "Remove subtrees that are smaller than PCT" in
+    let docv = "PCT" in
+    Arg.(value & opt (some float) None & info [ "filter-small" ] ~doc ~docv)
+
+  let with_scale =
+    let doc = "Include an additional scale-SVG in the HTML, \
+               given the size in bytes of the non-debug ELF file." in
+    let docv = "BYTES" in
+    Arg.(value & opt (some int) None & info [ "with-scale" ] ~doc ~docv)
+
+  let robur_css = 
+    let doc = "Use Robur CSS styling in HTML" in
+    Arg.(value & flag & info [ "robur-css" ] ~doc)
+  
+end
+
+let squarify_files filter_small with_scale robur_css files =
   let rec get_all = function
     | [] -> Ok Iter.empty
     | h :: t ->
@@ -90,13 +152,19 @@ let squarify_files files =
       Iter.append i i'
   in
   get_all files >|= fun i ->
-  squarify i
+  squarify filter_small with_scale robur_css i
 
 let main_term =
   let open Cmdliner in
   let doc = "Dissect OCaml compiled programs, and weight their content." in
   let info = Cmd.info ~doc "modulectomy" in
-  let term = Term.(term_result (const squarify_files $ programs_arg)) in
+  let term = Term.(term_result (
+    const squarify_files
+    $ Arg_aux.filter_small
+    $ Arg_aux.with_scale
+    $ Arg_aux.robur_css
+    $ Arg_aux.programs_arg
+  )) in
   Cmd.v info term
 
 let () =
