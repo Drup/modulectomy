@@ -1,3 +1,12 @@
+
+let visualization_version = 1
+(** Remember to increment this when anything changes that can affect the 
+    visualization, e.g.:
+      * algorithm change
+      * UI change
+      * certain library-dependency changes 
+*)
+
 let sp = Printf.sprintf
 
 module T = Tree_layout
