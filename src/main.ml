@@ -167,10 +167,29 @@ module Arg_aux = struct
     let doc = "Use Robur default values for every configuration option. \
                You need to pass --with-scale too." in
     Arg.(value & flag & info [ "robur-defaults" ] ~doc)
-  
+
+  let visualization_version = 
+    let doc = "Print the visualization version. Used to know when the output \
+               has changed because of an update to settings or implementation." in
+    let arg = Arg.(value & flag & info [ "visualization-version" ] ~doc) in
+    let print_visualization_version flag = 
+      if not flag then `Ok () else (
+        Printf.printf "%d\n" Treemap.visualization_version;
+        exit 0
+        (* `Error (false, Printf.sprintf "%d" Treemap.visualization_version) *)
+      )
+    in
+    Term.(ret (const print_visualization_version $ arg))
+
 end
 
-let squarify_files robur_defaults robur_css filter_small with_scale files =
+let squarify_files
+    _visualization_version
+    robur_defaults
+    robur_css
+    filter_small
+    with_scale
+    files =
   let rec get_all = function
     | [] -> Ok Iter.empty
     | h :: t ->
@@ -187,6 +206,7 @@ let main_term =
   let info = Cmd.info ~doc "modulectomy" in
   let term = Term.(term_result (
     const squarify_files
+    $ Arg_aux.visualization_version
     $ Arg_aux.robur_defaults
     $ Arg_aux.robur_css
     $ Arg_aux.filter_small
