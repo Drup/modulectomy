@@ -32,16 +32,41 @@ let print_debug ~size ~tree =
     ranges;
   Printf.eprintf "\n"
 
-let robur_css_overrides = "\
-  .treemap-module {\
-    fill: rgb(60, 60, 87);\
-  }\
-  .treemap-functor > text, .treemap-module > text {\
-    fill: bisque;\
-  }\
-"
+module Robur_defaults = struct
 
-let squarify filter_small with_scale robur_css infos =
+  let css_overrides = "\
+    .treemap-module {\
+      fill: rgb(60, 60, 87);\
+    }\
+    .treemap-functor > text, .treemap-module > text {\
+      fill: bisque;\
+    }\
+  "
+
+  let filter_small = 0.004
+
+  let with_scale () = failwith "You need to pass --with-scale=<ELF-SIZE>"
+  
+end
+
+let squarify robur_defaults robur_css filter_small with_scale infos =
+  let default_css_overrides =
+    if robur_defaults || robur_css then
+      Some Robur_defaults.css_overrides
+    else None
+  and default_filter_small = 
+    if robur_defaults then
+      Some Robur_defaults.filter_small
+    else None
+  and default_with_scale () = 
+    if robur_defaults then
+      Some (Robur_defaults.with_scale ())
+      (*< todo can this param dependency be represented in Cmdliner DSL?*)
+    else None
+  in
+  let filter_small = filter_small |> CCOption.or_ ~else_:default_filter_small
+  and with_scale = with_scale |> CCOption.or_lazy ~else_:default_with_scale
+  in
   let size, infos = 
     infos
     |> Info.import
@@ -65,10 +90,7 @@ let squarify filter_small with_scale robur_css infos =
     |> Info.cut 2
     |> Info.partition_subtrees node_big_enough
   in
-  let override_css =
-    if not robur_css then None else
-      Some robur_css_overrides
-  in
+  let override_css = default_css_overrides in
   let treemap = Treemap.of_tree infos in
   let html = match with_scale with
     | None -> Treemap.to_html ?override_css treemap
@@ -141,9 +163,14 @@ module Arg_aux = struct
     let doc = "Use Robur CSS styling in HTML" in
     Arg.(value & flag & info [ "robur-css" ] ~doc)
   
+  let robur_defaults = 
+    let doc = "Use Robur default values for every configuration option. \
+               You need to pass --with-scale too." in
+    Arg.(value & flag & info [ "robur-defaults" ] ~doc)
+  
 end
 
-let squarify_files filter_small with_scale robur_css files =
+let squarify_files robur_defaults robur_css filter_small with_scale files =
   let rec get_all = function
     | [] -> Ok Iter.empty
     | h :: t ->
@@ -152,7 +179,7 @@ let squarify_files filter_small with_scale robur_css files =
       Iter.append i i'
   in
   get_all files >|= fun i ->
-  squarify filter_small with_scale robur_css i
+  squarify robur_defaults robur_css filter_small with_scale i
 
 let main_term =
   let open Cmdliner in
@@ -160,9 +187,10 @@ let main_term =
   let info = Cmd.info ~doc "modulectomy" in
   let term = Term.(term_result (
     const squarify_files
+    $ Arg_aux.robur_defaults
+    $ Arg_aux.robur_css
     $ Arg_aux.filter_small
     $ Arg_aux.with_scale
-    $ Arg_aux.robur_css
     $ Arg_aux.programs_arg
   )) in
   Cmd.v info term
