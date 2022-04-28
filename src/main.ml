@@ -168,23 +168,9 @@ module Arg_aux = struct
                You need to pass --with-scale too." in
     Arg.(value & flag & info [ "robur-defaults" ] ~doc)
 
-  let visualization_version_printer = 
-    let doc = "Print the visualization version. Used to know when the output \
-               has changed because of an update to settings or implementation." in
-    let arg = Arg.(value & flag & info [ "visualization-version" ] ~doc) in
-    let print_visualization_version flag = 
-      if not flag then `Ok () else (
-        Printf.printf "%d\n" Treemap.visualization_version;
-        exit 0
-        (* `Error (false, Printf.sprintf "%d" Treemap.visualization_version) *)
-      )
-    in
-    Term.(ret (const print_visualization_version $ arg))
-
 end
 
 let squarify_files
-    _visualization_version_printer
     robur_defaults
     robur_css
     filter_small
@@ -203,10 +189,10 @@ let squarify_files
 let main_term =
   let open Cmdliner in
   let doc = "Dissect OCaml compiled programs, and weight their content." in
-  let info = Cmd.info ~doc "modulectomy" in
+  let version = Fmt.str "%d" Treemap.visualization_version in
+  let info = Cmd.info ~doc ~version "modulectomy" in
   let term = Term.(term_result (
     const squarify_files
-    $ Arg_aux.visualization_version_printer
     $ Arg_aux.robur_defaults
     $ Arg_aux.robur_css
     $ Arg_aux.filter_small
