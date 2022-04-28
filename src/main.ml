@@ -168,7 +168,7 @@ module Arg_aux = struct
                You need to pass --with-scale too." in
     Arg.(value & flag & info [ "robur-defaults" ] ~doc)
 
-  let visualization_version = 
+  let visualization_version_printer = 
     let doc = "Print the visualization version. Used to know when the output \
                has changed because of an update to settings or implementation." in
     let arg = Arg.(value & flag & info [ "visualization-version" ] ~doc) in
@@ -184,7 +184,7 @@ module Arg_aux = struct
 end
 
 let squarify_files
-    _visualization_version
+    _visualization_version_printer
     robur_defaults
     robur_css
     filter_small
@@ -206,7 +206,7 @@ let main_term =
   let info = Cmd.info ~doc "modulectomy" in
   let term = Term.(term_result (
     const squarify_files
-    $ Arg_aux.visualization_version
+    $ Arg_aux.visualization_version_printer
     $ Arg_aux.robur_defaults
     $ Arg_aux.robur_css
     $ Arg_aux.filter_small
