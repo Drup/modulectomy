@@ -1,3 +1,12 @@
+
+let visualization_version = 1
+(** Remember to increment this when anything changes that can affect the 
+    visualization, e.g.:
+      * algorithm change
+      * UI change
+      * certain library-dependency changes 
+*)
+
 let sp = Printf.sprintf
 
 module T = Tree_layout
@@ -119,7 +128,7 @@ module Render = struct
 .treemap-scale-fill:hover ~ g {
   filter: grayscale(0%%) !important;
 }
-.treemap-scale-node > .scale-fill:hover ~ * .scale-fill {
+.treemap-scale-node > .treemap-scale-fill:hover ~ * .treemap-scale-fill {
   filter: grayscale(0%%) !important;
 }
 .treemap-scale-line {
