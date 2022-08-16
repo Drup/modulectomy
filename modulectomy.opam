@@ -12,6 +12,7 @@ depends: [
   "ocaml" {>= "4.08.0"}
   "dune"
   "owee" {>= "0.5"}
+  "tree_layout"
   "iter"
   "containers"
   "containers-data"
