@@ -4,7 +4,7 @@
  (modules :standard \ main)
  (libraries
    owee
-   modulectomy.tree_layout tyxml
+   tree_layout tyxml
    iter containers containers-data fpath
    tyre fmt 
  )
