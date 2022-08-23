@@ -20,6 +20,12 @@ mkdir -p "$debiandir" "$bindir"
 
 install "$bdir/modulectomy" "$bindir/modulectomy"
 
+# install debian metadata
+install -m 0644 $basedir/packaging/debian/control $debiandir/control
+install -m 0644 $basedir/packaging/debian/changelog $debiandir/changelog
+install -m 0644 $basedir/packaging/debian/copyright $debiandir/copyright
+install $basedir/packaging/debian/postinst $debiandir/postinst
+
 ARCH=$(dpkg-architecture -q DEB_TARGET_ARCH)
 sed -i -e "s/^Architecture:.*/Architecture: ${ARCH}/" "$debiandir"/control
 
