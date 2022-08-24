@@ -12,7 +12,7 @@ pdir=$basedir/package/FreeBSD
 bdir=$basedir/_build/install/default/bin
 tmpd=$basedir/_build/stage
 manifest=$tmpd/+MANIFEST
-rootdir=$tmpdir/rootdir
+rootdir=$tmpd/rootdir
 bindir=$rootdir/usr/local/bin
 
 trap 'rm -rf $tmpd' 0 INT EXIT
