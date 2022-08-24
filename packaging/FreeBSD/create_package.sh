@@ -8,7 +8,7 @@ if [ "$ORB_BUILDING_PACKAGE" != "modulectomy" -a "$OPAM_PACKAGE_NAME" != "" ]; t
 fi
 
 basedir=$(realpath "$(dirname "$0")"/../..)
-pdir=$basedir/package/FreeBSD
+pdir=$basedir/packaging/FreeBSD
 bdir=$basedir/_build/install/default/bin
 tmpd=$basedir/_build/stage
 manifest=$tmpd/+MANIFEST
@@ -24,7 +24,7 @@ install -U "$bdir/modulectomy" "$bindir/modulectomy"
 flatsize=$(find "$rootdir" -type f -exec stat -f %z {} + |
                awk 'BEGIN {s=0} {s+=$1} END {print s}')
 
-sed -e "s:%%FLATSIZE%%:${flatsize}:" -e "/^[Vversion:/s/-/./g" "$pdir/MANIFEST" > "$manifest"
+sed -e "s:%%FLATSIZE%%:${flatsize}:" -e "/^[Vv]ersion:/s/-/./g" "$pdir/MANIFEST" > "$manifest"
 
 {
     printf '\nfiles {\n'
