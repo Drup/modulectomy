@@ -1,0 +1,11 @@
+Package: modulectomy
+Version: %%VERSION_NUM%%
+Section: unknown
+Priority: optional
+Maintainer: Robur Team <team@robur.coop>
+Standards-Version: 4.4.1
+Homepage: https://github.com/roburio/modulectomy
+Vcs-Browser: https://github.com/roburio/modulectomy
+Vcs-Git: https://github.com/roburio/modulectomy.git
+Architecture: FIXME
+Description: Dissect OCaml compiled programs and weigh their content

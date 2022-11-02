@@ -1,20 +1,21 @@
 (library
- (name lib)
- (wrapped false)
+ (name modulectomy)
+ (public_name modulectomy)
  (modules :standard \ main)
  (libraries
    owee
-   js_of_ocaml.compiler
    tree_layout tyxml
-   iter containers containers.data fpath
-   tyre
+   iter containers containers-data fpath
+   tyre fmt 
  )
-)
+ ;; (flags (:standard (-w -27-26)))
+ )
   
 
 (executable
  (name main)
  (modules main)
  (public_name modulectomy)
- (libraries lib cmdliner)
+ (libraries cmdliner modulectomy)
+ ;; (flags (:standard (-w -27-26)))
 )

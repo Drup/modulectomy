@@ -24,21 +24,23 @@ type data = {
   size : size option;
   location : location option ;
   kind : kind ;
+  v : Int64.t option ;
 }
-let mk ?size ?location kind = { size ; location ; kind }
+let mk ?v ?size ?location kind = { v ; size ; location ; kind }
 let coalesce data1 data2 =
-  let open CCOpt.Infix in
+  let open CCOption.Infix in
   let size = Int64.add <$> data1.size <*> data2.size in
   let location = data1.location <+> data2.location in
   (* assert (data1.kind = data2.kind); *)
   let kind = data1.kind in
-  { size ; location ; kind }
+  { v = data1.v ; size ; location ; kind }
 
 let pp_data ppf d =
-  Format.fprintf ppf "%s %a %a"
+  Format.fprintf ppf "%s %a %a v %a"
     (to_string d.kind)
     CCFormat.(opt int64) d.size
     (CCFormat.opt pp_location) d.location
+    CCFormat.(opt int64) d.v
 
 type name = string
 type lid = name list
@@ -50,6 +52,15 @@ module T = struct
   type t = T of node SMap.t
   and node =
     { value : data ; children : t }
+
+  let rec pp ppf (T t) =
+    let pp_node ppf { value ; children } =
+      Format.fprintf ppf "%a, children: %a@."
+        pp_data value pp children
+    in
+    SMap.iter (fun k v ->
+        Format.fprintf ppf "key %s node %a@." k pp_node v)
+      t
 
   let empty = T SMap.empty
   
@@ -99,21 +110,123 @@ let adjust_size ~total ~children_size =
     let size = Int64.sub s children_size in
     s, Some size
 
-let rec diff_size_tree ((T.T t) : t) =
+let rec diff_size_tree ?(n = "") ((T.T t) : t) =
   let aux v tree (total_size, trees) =
-    let size, tree = diff_size_node tree in
-    Int64.add size total_size, SMap.add v tree trees
+    let size, tree = diff_size_node (n ^ ":" ^ v) tree in
+    let t = match tree with None -> trees | Some t -> SMap.add v t trees in
+    Int64.add size total_size, t
   in
   let total_size, trees = SMap.fold aux t (0L,SMap.empty) in
   total_size, T.T trees
-and diff_size_node T.{ value; children } =
-  let children_size, children = diff_size_tree children in
-  let total_size, size = adjust_size ~total:value.size ~children_size in
-  let value = {value with size} in
-  total_size, T.{ value; children }
+and diff_size_node v T.{ value; children } =
+  match value.kind with
+  | Module ->
+    (* Printf.eprintf "module %s\n" v; *)
+    begin
+      let (T child_nodes) = children in
+      match SMap.find_opt "code" child_nodes with
+      | Some code ->
+        (* Printf.eprintf "hit module %s\n" v; *)
+        let data = SMap.find_opt "data" child_nodes in
+        let prims = SMap.find_opt "primitives" child_nodes in
+        let others =
+          SMap.remove "data"
+            (SMap.remove "code"
+               (SMap.remove "primitives" child_nodes))
+        in
+        let c_size, T.T more_children = diff_size_tree ~n:v (T.T others) in
+        let children = SMap.singleton "code" code in
+        let children =
+          Option.fold
+            ~none:children
+            ~some:(fun p -> SMap.add "data" p children)
+            data
+        in
+        let children =
+          Option.fold
+            ~none:children
+            ~some:(fun p -> SMap.add "primitives" p children)
+            prims
+        in
+        let children = SMap.union (fun _ a _ -> Some a) children more_children in
+        let children = T.T children in
+        let size = Option.get code.value.size in
+        let size = Option.fold ~none:size ~some:(fun p -> Int64.add (Option.get p.T.value.size) size) data in
+        let size = Option.fold ~none:size ~some:(fun p -> Int64.add (Option.get p.T.value.size) size) prims in
+        let size = Int64.add size c_size in
+        let value = { value with v = None } in
+        size, Some T.{ value ; children }
+      | None ->
+        match SMap.find_opt "primitives" child_nodes with
+        | Some p ->
+          let others = SMap.remove "primitives" child_nodes in
+          let c_size, T.T more_children = diff_size_tree ~n:v (T.T others) in
+          let children = SMap.singleton "primitives" p in
+          let children = SMap.union (fun _ a _ -> Some a) children more_children in
+          let children = T.T children in
+          let size = Option.get p.value.size in
+          let size = Int64.add size c_size in
+          let value = { value with v = None } in
+          size, Some T.{ value ; children }
+        | None ->
+          let children_size, children = diff_size_tree children in
+          let total_size, size = adjust_size ~total:value.size ~children_size in
+          let value = {value with size} in
+          total_size, Some T.{ value; children }
+    end
+  | _ ->
+    let children_size, children = diff_size_tree children in
+    let total_size, size = adjust_size ~total:value.size ~children_size in
+    let value = {value with size} in
+    total_size, Some T.{ value; children }
 
-let diff_size t = snd @@ diff_size_tree t
+let diff_size t =
+  snd @@ diff_size_tree t
 
+let find_ranges t =
+  let rec find_range acc name ((T.T t) : t) =
+    let aux name' tree ranges = find_range_node ranges (name ^ ":" ^ name') tree in
+    SMap.fold aux t acc
+  and find_range_node acc name T.{ value ; children } =
+    let acc = find_range acc name children in
+    match value.v, value.size with
+    | Some our_start, Some size when size > 0L ->
+      let our_stop = Int64.add our_start size in
+      (our_start, our_stop, name) :: acc
+    | _ -> acc
+  in
+  let triplets = find_range [] "" t in
+  let sorted_triplets = List.sort (fun (a, a', _) (b, b', _) ->
+      match compare a b with 0 -> compare b' a' | x -> x)
+      triplets
+  in
+  sorted_triplets
+(*  let space = 0L in
+  let rec merge_consequtive = function
+    | (start, stop, n as t0) :: (start', stop', _n' as t1) :: tail ->
+      if Int64.add stop space >= start' && start <= start' then
+        let t = (start, max stop stop', n) in
+        merge_consequtive (t :: tail)
+      else if Int64.add start space <= stop' && stop >= stop' then
+        let t = (min start start', stop, n) in
+        merge_consequtive (t :: tail)
+      else
+        t0 :: merge_consequtive (t1 :: tail)
+    | [] | _ :: [] as l -> l
+  in
+    merge_consequtive sorted_triplets *)
+
+(*
+    start..stop
+         ^^ here  --> skip it, DONE (1 in the conditional)
+^-^^           ^^---^^
+   here          here --> extend the start..stop range (2nd and 3rd)
+ ^^------^^ here (start <= our_stop <= stop) (4th)
+            ^^------^^ here (start <= our_start <= stop) (5th)
+ ^^--------------^^ here (our_start <= start && our_stop >= stop) (6th)
+^^               ^^
+here             here          --> don't do anything
+*)
 
 let prefix_filename ((T.T t) : t) =
   let add map prefix data =
@@ -161,3 +274,26 @@ and cut_node n T.{ value; children } =
     T.{ value; children = T.T SMap.empty }
 
 let cut n t = cut_tree n t
+
+type 'a partition_acc = 'a SMap.t * T.t list
+
+let rec partition_subtrees : (T.node -> bool) -> T.t -> T.t * T.t list
+  = fun predicate (T.T tree) ->
+    let init = SMap.empty, [] in
+    let tree, excluded = SMap.fold (partition_node predicate) tree init in
+    T.T tree, excluded
+
+and partition_node
+  : (T. node -> bool) -> name -> T.node -> _ partition_acc -> _ partition_acc
+  = fun predicate name node (acc_tree, acc_excluded) ->
+    if predicate node then
+      let children, excluded = partition_subtrees predicate node.children in
+      let value = node.value in
+      let node = T.{ value; children } in
+      let acc_tree = SMap.add name node acc_tree in
+      let acc_excluded = excluded @ acc_excluded in
+      acc_tree, acc_excluded
+    else
+      let acc_excluded = T.T (SMap.singleton name node) :: acc_excluded in
+      acc_tree, acc_excluded
+

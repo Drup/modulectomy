@@ -9,19 +9,24 @@ tags: "regex"
 homepage: "https://github.com/Drup/modulectomy"
 bug-reports: "https://github.com/Drup/modulectomy/issues"
 depends: [
-  "ocaml" {>= "4.02.0"}
-  "jbuilder" {build}
-  "owee"
-  "js_of_ocaml-compiler"
+  "ocaml" {>= "4.08.0"}
+  "dune"
+  "owee" {>= "0.5"}
   "tree_layout"
   "iter"
   "containers"
+  "containers-data"
   "fpath"
   "tyxml"
+  "tyre"
+  "cmdliner" {>= "1.1.0"}
+  "fmt"
 ]
 build: [
-  ["jbuilder" "subst"] {pinned}
-  ["jbuilder" "build" "-p" name "-j" jobs]
-  ["jbuilder" "runtest" "-p" name] {with-test}
+  ["dune" "subst"] {dev}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
+  ["sh" "-ex" "packaging/FreeBSD/create_package.sh"] {os = "freebsd"}
+  ["sh" "-ex" "packaging/debian/create_package.sh"] {os-family = "debian"}
 ]
 dev-repo: "git+https://github.com/Drup/modulectomy.git"

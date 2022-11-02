@@ -1,0 +1,15 @@
+name: modulectomy
+version: %%VERSION_NUM%%
+origin: local/modulectomy
+comment: Treemap visualization of OCaml binaries
+www: https://github.com/roburio/modulectomy
+maintainer: Robur <team@robur.coop>
+prefix: /usr/local
+licenselogic: single
+licenses: [ISCL]
+flatsize: %%FLATSIZE%%
+categories: [local]
+desc = <<EOD
+Graphing size of OCaml binaries and contributions of libraries
+
+EOD;

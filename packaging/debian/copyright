@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: modulectomy
+Upstream-Contact: Robur <team@robur.coop>
+Source: https://github.com/roburio/modulectomy
+
+Files: *
+Copyright: "Gabriel Radanne <drupyog@zoho.com>"
+License: ISC
